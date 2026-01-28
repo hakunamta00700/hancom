@@ -1,0 +1,20 @@
+from django.contrib import admin
+from . import models
+
+admin.site.register(models.Organization)
+admin.site.register(models.User)
+admin.site.register(models.Subject)
+admin.site.register(models.Chapter)
+admin.site.register(models.SourceDocument)
+admin.site.register(models.IngestionJob)
+admin.site.register(models.Problem)
+admin.site.register(models.Passage)
+admin.site.register(models.Choice)
+admin.site.register(models.Tag)
+admin.site.register(models.ProblemTag)
+admin.site.register(models.ProblemChapter)
+admin.site.register(models.ExamPaper)
+admin.site.register(models.ExamPaperItem)
+admin.site.register(models.ReviewTask)
+admin.site.register(models.ReviewHistory)
+admin.site.register(models.AuditLog)

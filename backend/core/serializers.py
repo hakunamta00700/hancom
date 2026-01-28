@@ -1,0 +1,198 @@
+import os
+from rest_framework import serializers
+from .models import (
+    Organization,
+    User,
+    Subject,
+    Chapter,
+    SourceDocument,
+    IngestionJob,
+    Problem,
+    ReviewTask,
+    ExamPaper,
+    Tag,
+)
+
+
+class OrganizationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Organization
+        fields = ["id", "name", "domain", "is_active", "created_at", "updated_at"]
+
+
+class UserSerializer(serializers.ModelSerializer):
+    organization = OrganizationSerializer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ["id", "email", "name", "role", "organization", "is_active", "created_at", "updated_at"]
+
+
+class RegisterSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True, min_length=8)
+    name = serializers.CharField(max_length=100)
+    organization_name = serializers.CharField(max_length=200)
+
+    def create(self, validated_data):
+        organization = Organization.objects.create(name=validated_data["organization_name"])
+        user = User.objects.create_user(
+            email=validated_data["email"],
+            password=validated_data["password"],
+            name=validated_data["name"],
+            role="admin",
+            organization=organization,
+            is_staff=True,
+        )
+        return user
+
+
+class SubjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subject
+        fields = ["id", "name", "code", "display_order", "is_active", "created_at"]
+
+
+class ChapterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Chapter
+        fields = ["id", "subject", "name", "code", "parent", "display_order", "is_active", "created_at"]
+
+
+class SourceDocumentSerializer(serializers.ModelSerializer):
+    def validate_file(self, value):
+        max_bytes = 50 * 1024 * 1024
+        if value.size > max_bytes:
+            raise serializers.ValidationError("File size exceeds 50MB limit.")
+        ext = os.path.splitext(value.name)[1].lstrip(".").upper()
+        if ext not in {"PDF", "PNG", "JPG", "JPEG"}:
+            raise serializers.ValidationError("Only PDF, PNG, JPG files are allowed.")
+        return value
+
+    class Meta:
+        model = SourceDocument
+        fields = [
+            "id",
+            "organization",
+            "title",
+            "file",
+            "file_type",
+            "file_size",
+            "page_count",
+            "source",
+            "copyright_info",
+            "exam_year",
+            "exam_month",
+            "exam_round",
+            "uploaded_by",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "organization",
+            "file_type",
+            "file_size",
+            "uploaded_by",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+
+    def create(self, validated_data):
+        request = self.context["request"]
+        file_obj = validated_data["file"]
+        filename = file_obj.name
+        ext = os.path.splitext(filename)[1].lstrip(".").upper()
+        validated_data["file_type"] = ext
+        validated_data["file_size"] = file_obj.size
+        validated_data["organization"] = request.user.organization
+        validated_data["uploaded_by"] = request.user
+        source_document = super().create(validated_data)
+        IngestionJob.objects.create(source_document=source_document)
+        return source_document
+
+
+class IngestionJobSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = IngestionJob
+        fields = [
+            "id",
+            "source_document",
+            "status",
+            "progress",
+            "pages_processed",
+            "problems_extracted",
+            "error_message",
+            "started_at",
+            "completed_at",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class ProblemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Problem
+        fields = [
+            "id",
+            "organization",
+            "source_document",
+            "problem_number",
+            "page_number",
+            "image_file",
+            "text_content",
+            "problem_type",
+            "difficulty",
+            "estimated_time",
+            "is_public",
+            "reviewed_at",
+            "reviewed_by",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["organization", "created_at", "updated_at"]
+
+
+class ReviewTaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReviewTask
+        fields = [
+            "id",
+            "problem",
+            "ingestion_job",
+            "status",
+            "assigned_to",
+            "reviewed_at",
+            "review_notes",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class ExamPaperSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamPaper
+        fields = [
+            "id",
+            "organization",
+            "title",
+            "description",
+            "subject",
+            "total_problems",
+            "estimated_time",
+            "difficulty_distribution",
+            "created_by",
+            "pdf_file",
+            "is_published",
+            "published_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["organization", "created_by", "created_at", "updated_at"]
+
+
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = ["id", "name", "category", "display_order", "is_active", "created_at"]

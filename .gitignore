@@ -8,6 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
-
+.venv_win
+output_old/
 # 추출 스크립트 출력
 output/
