@@ -5,13 +5,37 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    # 공통 패키지 (크로스 플랫폼)
     "click>=8.1",
     "easyocr>=1.7",
     "numpy>=1.24",
     "opencv-python>=4.8",
     "Pillow>=10",
-    "pyautogui>=0.9.54",
-    "pyhwpx>=1.6.6",
     "pymupdf>=1.24",
     "scikit-image>=0.21",
+    "pytest>=7",
+    # Windows 전용 패키지 (HWP 처리 및 GUI 자동화)
+    "pyhwpx>=1.6.6 ; sys_platform == 'win32'",
+    "pyautogui>=0.9.54 ; sys_platform == 'win32'",
+    "pywin32>=306 ; sys_platform == 'win32'",
+]
+
+[project.optional-dependencies]
+dev = ["pytest-cov>=4"]
+# Linux 전용 의존성 (필요 시 추가)
+linux = []
+# Windows 전용 추가 개발 도구
+windows-dev = [
+    "pywin32>=306 ; sys_platform == 'win32'",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+python_classes = ["Test*"]
+addopts = "-v --tb=short"
+markers = [
+    "unit: 단위 테스트 (TC-LEGACY-001, 002 등)",
+    "integration: 통합 테스트 (TC-LEGACY-003, 004 등)",
 ]
