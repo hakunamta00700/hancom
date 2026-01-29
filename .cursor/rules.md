@@ -88,3 +88,17 @@ npm run dev
 **해결**: `useSearchParams()` 훅을 사용하여 쿼리 파라미터 읽기
   - 예: `/student/exams?attempt=123` → `searchParams.get("attempt")`
 **참고**: Next.js 13+ App Router에서는 `useSearchParams()`가 클라이언트 컴포넌트에서만 사용 가능
+
+### 2026-01-29: Django F() 표현식을 사용한 순서 업데이트
+**상황**: 문항 순서 변경 시 다른 문항들의 순서를 자동으로 조정해야 함
+**에러**: 없음 (예방적 기록)
+**해결**: Django의 `F()` 표현식을 사용하여 데이터베이스 레벨에서 순서 업데이트
+  - 예: `ExamPaperItem.objects.filter(...).update(order_number=models.F("order_number") - 1)`
+**참고**: `F()` 표현식은 데이터베이스 쿼리 레벨에서 계산되므로 성능이 좋고 race condition을 방지함
+
+### 2026-01-29: React에서 즉시 실행 함수(IIFE) 사용
+**상황**: JSX에서 복잡한 로직(정렬 등)을 수행한 후 map을 사용해야 함
+**에러**: 없음
+**해결**: 즉시 실행 함수(IIFE)를 사용하여 JSX 내에서 복잡한 로직 처리
+  - 예: `{(() => { const sorted = [...items].sort(...); return sorted.map(...); })()}`
+**참고**: JSX 내에서 직접 정렬/필터링을 하면 매 렌더링마다 실행되므로, useMemo를 사용하는 것이 더 효율적일 수 있음
