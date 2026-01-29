@@ -20,6 +20,7 @@ from .models import (
     Problem,
     ReviewTask,
     ExamPaper,
+    ExamPaperCondition,
     ExamTemplate,
     Tag,
     User,
@@ -103,11 +104,12 @@ class MeView(APIView):
 
 class StudentsListView(APIView):
     """조직 내 학생 목록 조회"""
+
     def get(self, request):
         students = User.objects.filter(
             organization=request.user.organization,
             role=UserRole.STUDENT,
-            is_active=True
+            is_active=True,
         ).order_by("name")
         serializer = UserSerializer(students, many=True)
         return Response({"results": serializer.data})
@@ -517,7 +519,7 @@ class ExamPaperViewSet(viewsets.ModelViewSet):
             created_by=self.request.user,
             template_id=template_id if template_id else None,
         )
-    
+
     def perform_update(self, serializer):
         template_id = serializer.validated_data.pop("template_id", None)
         if template_id is not None:
@@ -755,14 +757,37 @@ class ExamTemplateViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
 
 
+class ExamPaperConditionViewSet(viewsets.ModelViewSet):
+    from .serializers import ExamPaperConditionSerializer
+    
+    serializer_class = ExamPaperConditionSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return ExamPaperCondition.objects.filter(organization=user.organization)
+
+    def perform_create(self, serializer):
+        serializer.save(
+            organization=self.request.user.organization, created_by=self.request.user
+        )
+
+    def get_permissions(self):
+        if self.request.user.role not in {"admin", "teacher"}:
+            raise PermissionDenied("Insufficient permissions")
+        return [permissions.IsAuthenticated()]
+
+
 class ClassViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         from .serializers import ClassSerializer
+
         return ClassSerializer
 
     def get_queryset(self):
         user = self.request.user
-        return Class.objects.filter(organization=user.organization).prefetch_related("members__student")
+        return Class.objects.filter(organization=user.organization).prefetch_related(
+            "members__student"
+        )
 
     def perform_create(self, serializer):
         serializer.save(
@@ -778,32 +803,38 @@ class ClassViewSet(viewsets.ModelViewSet):
     def add_member(self, request, pk=None):
         """학생 추가"""
         from .serializers import ClassMemberSerializer
-        
+
         class_group = self.get_object()
         student_id = request.data.get("student_id")
-        
+
         if not student_id:
             return Response(
                 {"detail": "student_id가 필요합니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         # 학생이 같은 조직에 속하는지 확인
         try:
-            student = User.objects.get(id=student_id, role=UserRole.STUDENT, organization=request.user.organization)
+            student = User.objects.get(
+                id=student_id,
+                role=UserRole.STUDENT,
+                organization=request.user.organization,
+            )
         except User.DoesNotExist:
             return Response(
                 {"detail": "학생을 찾을 수 없습니다."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        
+
         # 중복 확인
-        if ClassMember.objects.filter(class_group=class_group, student=student).exists():
+        if ClassMember.objects.filter(
+            class_group=class_group, student=student
+        ).exists():
             return Response(
                 {"detail": "이미 추가된 학생입니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         member = ClassMember.objects.create(class_group=class_group, student=student)
         serializer = ClassMemberSerializer(member)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -813,13 +844,13 @@ class ClassViewSet(viewsets.ModelViewSet):
         """학생 제거"""
         class_group = self.get_object()
         member_id = request.data.get("member_id")
-        
+
         if not member_id:
             return Response(
                 {"detail": "member_id가 필요합니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         try:
             member = ClassMember.objects.get(class_group=class_group, id=member_id)
             member.delete()

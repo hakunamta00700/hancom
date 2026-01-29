@@ -7,10 +7,12 @@ import { examsApi } from "@/lib/api/exams";
 import { subjectsApi } from "@/lib/api/subjects";
 import { problemsApi } from "@/lib/api/problems";
 import { templatesApi } from "@/lib/api/templates";
+import { examConditionsApi } from "@/lib/api/exam-conditions";
 import type { ExamPaper, ExamPaperItem } from "@/lib/api/exams";
 import type { Problem } from "@/lib/api/problems";
 import type { Subject, Chapter } from "@/lib/api/subjects";
 import type { ExamTemplate } from "@/lib/api/templates";
+import type { ExamPaperCondition } from "@/lib/api/exam-conditions";
 
 export default function ExamBuilderPage() {
   const router = useRouter();
@@ -37,6 +39,7 @@ export default function ExamBuilderPage() {
   useEffect(() => {
     loadSubjects();
     loadTemplates();
+    loadSavedConditions();
     createDraft();
   }, []);
 
@@ -73,6 +76,53 @@ export default function ExamBuilderPage() {
     } catch (err) {
       console.error("템플릿 로드 실패:", err);
     }
+  };
+
+  const loadSavedConditions = async () => {
+    try {
+      const response = await examConditionsApi.list();
+      setSavedConditions(response.results);
+    } catch (err) {
+      console.error("저장된 조건 로드 실패:", err);
+    }
+  };
+
+  const handleSaveCondition = async () => {
+    if (!conditionName.trim()) {
+      alert("조건 이름을 입력해주세요.");
+      return;
+    }
+    
+    try {
+      await examConditionsApi.create({
+        name: conditionName,
+        conditions: {
+          subject_id: subjectId || undefined,
+          chapter_ids: selectedChapters.length > 0 ? selectedChapters : undefined,
+          type_ids: selectedTypes.length > 0 ? selectedTypes : undefined,
+          difficulty_min: parseInt(difficultyMin) || undefined,
+          difficulty_max: parseInt(difficultyMax) || undefined,
+          total_count: parseInt(totalCount) || undefined,
+        },
+      });
+      setConditionName("");
+      setShowSaveConditionModal(false);
+      await loadSavedConditions();
+      alert("조건이 저장되었습니다.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "조건 저장 실패");
+    }
+  };
+
+  const handleLoadCondition = (condition: ExamPaperCondition) => {
+    const cond = condition.conditions;
+    if (cond.subject_id) setSubjectId(cond.subject_id);
+    if (cond.chapter_ids) setSelectedChapters(cond.chapter_ids);
+    if (cond.type_ids) setSelectedTypes(cond.type_ids);
+    if (cond.difficulty_min !== undefined) setDifficultyMin(cond.difficulty_min.toString());
+    if (cond.difficulty_max !== undefined) setDifficultyMax(cond.difficulty_max.toString());
+    if (cond.total_count !== undefined) setTotalCount(cond.total_count.toString());
+    setShowLoadConditionModal(false);
   };
 
   const loadChapters = async () => {
@@ -546,6 +596,91 @@ export default function ExamBuilderPage() {
           </div>
         </div>
       </div>
+
+      {/* 조건 저장 모달 */}
+      {showSaveConditionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="card w-full max-w-md p-6">
+            <h3 className="section-title mb-4">조건 저장</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-slate">조건 이름 *</label>
+                <input
+                  type="text"
+                  className="mt-2 w-full rounded-2xl border border-ink/10 bg-white/80 px-4 py-3"
+                  placeholder="예: 중간고사_국어_1학년"
+                  value={conditionName}
+                  onChange={(e) => setConditionName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSaveConditionModal(false);
+                    setConditionName("");
+                  }}
+                  className="flex-1 rounded-full border border-ink/20 px-4 py-2 text-sm"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleSaveCondition}
+                  className="flex-1 rounded-full bg-ink px-4 py-2 text-sm text-white"
+                >
+                  저장
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 조건 불러오기 모달 */}
+      {showLoadConditionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="card w-full max-w-md p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="section-title">저장된 조건 불러오기</h3>
+              <button
+                onClick={() => setShowLoadConditionModal(false)}
+                className="rounded-full border border-ink/20 px-3 py-1 text-sm"
+              >
+                닫기
+              </button>
+            </div>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {savedConditions.length > 0 ? (
+                savedConditions.map((condition) => (
+                  <div
+                    key={condition.id}
+                    className="flex items-center justify-between rounded-xl bg-white/80 px-3 py-2 text-sm hover:bg-ink/5 cursor-pointer"
+                    onClick={() => handleLoadCondition(condition)}
+                  >
+                    <span>{condition.name}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm("이 조건을 삭제하시겠습니까?")) {
+                          examConditionsApi.delete(condition.id).then(() => {
+                            loadSavedConditions();
+                          });
+                        }
+                      }}
+                      className="rounded-full border border-ink/20 px-2 py-1 text-xs hover:bg-coral/10"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate text-center py-4">저장된 조건이 없습니다.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

@@ -11,6 +11,7 @@ from .models import (
     ReviewTask,
     ExamPaper,
     ExamPaperItem,
+    ExamPaperCondition,
     ExamTemplate,
     Tag,
     Class,
@@ -31,8 +32,24 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "email", "name", "role", "organization", "is_active", "created_at", "updated_at"]
-        read_only_fields = ["email", "role", "organization", "is_active", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "email",
+            "name",
+            "role",
+            "organization",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "email",
+            "role",
+            "organization",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class RegisterSerializer(serializers.Serializer):
@@ -42,7 +59,9 @@ class RegisterSerializer(serializers.Serializer):
     organization_name = serializers.CharField(max_length=200)
 
     def create(self, validated_data):
-        organization = Organization.objects.create(name=validated_data["organization_name"])
+        organization = Organization.objects.create(
+            name=validated_data["organization_name"]
+        )
         user = User.objects.create_user(
             email=validated_data["email"],
             password=validated_data["password"],
@@ -83,7 +102,16 @@ class SubjectSerializer(serializers.ModelSerializer):
 class ChapterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chapter
-        fields = ["id", "subject", "name", "code", "parent", "display_order", "is_active", "created_at"]
+        fields = [
+            "id",
+            "subject",
+            "name",
+            "code",
+            "parent",
+            "display_order",
+            "is_active",
+            "created_at",
+        ]
 
 
 class SourceDocumentSerializer(serializers.ModelSerializer):
@@ -136,14 +164,15 @@ class SourceDocumentSerializer(serializers.ModelSerializer):
         validated_data["organization"] = request.user.organization
         validated_data["uploaded_by"] = request.user
         source_document = super().create(validated_data)
-        
+
         # IngestionJob 생성 및 Celery 태스크 시작
         ingestion_job = IngestionJob.objects.create(source_document=source_document)
-        
+
         # 비동기 추출 작업 시작
         from .tasks import extract_problems_task
+
         extract_problems_task.delay(str(ingestion_job.id))
-        
+
         return source_document
 
 
@@ -168,7 +197,7 @@ class IngestionJobSerializer(serializers.ModelSerializer):
 class ProblemSerializer(serializers.ModelSerializer):
     review_task = serializers.SerializerMethodField()
     tags = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Problem
         fields = [
@@ -191,7 +220,7 @@ class ProblemSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["organization", "created_at", "updated_at"]
-    
+
     def get_review_task(self, obj):
         try:
             task = obj.reviewtask_set.first()
@@ -204,7 +233,7 @@ class ProblemSerializer(serializers.ModelSerializer):
         except:
             pass
         return None
-    
+
     def get_tags(self, obj):
         tags = obj.problemtag_set.select_related("tag").all()
         return [
@@ -237,25 +266,48 @@ class ReviewTaskSerializer(serializers.ModelSerializer):
 class ExamPaperItemSerializer(serializers.ModelSerializer):
     problem = ProblemSerializer(read_only=True)
     problem_id = serializers.UUIDField(write_only=True)
-    
+
     class Meta:
         model = ExamPaperItem
-        fields = ["id", "exam_paper", "problem", "problem_id", "order_number", "points", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "exam_paper",
+            "problem",
+            "problem_id",
+            "order_number",
+            "points",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ["exam_paper", "created_at", "updated_at"]
 
 
 class ExamTemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExamTemplate
-        fields = ["id", "organization", "name", "description", "is_default", "created_by", "settings", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "organization",
+            "name",
+            "description",
+            "is_default",
+            "created_by",
+            "settings",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ["organization", "created_by", "created_at", "updated_at"]
 
 
 class ExamPaperSerializer(serializers.ModelSerializer):
-    items = ExamPaperItemSerializer(source="exampaperitem_set", many=True, read_only=True)
+    items = ExamPaperItemSerializer(
+        source="exampaperitem_set", many=True, read_only=True
+    )
     template = ExamTemplateSerializer(read_only=True)
-    template_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
-    
+    template_id = serializers.UUIDField(
+        write_only=True, required=False, allow_null=True
+    )
+
     class Meta:
         model = ExamPaper
         fields = [
@@ -288,7 +340,7 @@ class TagSerializer(serializers.ModelSerializer):
 
 class ClassMemberSerializer(serializers.ModelSerializer):
     student = UserSerializer(read_only=True)
-    
+
     class Meta:
         model = ClassMember
         fields = ["id", "class_group", "student", "created_at", "updated_at"]
@@ -298,29 +350,55 @@ class ClassMemberSerializer(serializers.ModelSerializer):
 class ClassSerializer(serializers.ModelSerializer):
     members = ClassMemberSerializer(source="members", many=True, read_only=True)
     member_count = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Class
-        fields = ["id", "organization", "name", "description", "created_by", "members", "member_count", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "organization",
+            "name",
+            "description",
+            "created_by",
+            "members",
+            "member_count",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ["organization", "created_by", "created_at", "updated_at"]
-    
+
     def get_member_count(self, obj):
         return obj.members.count()
 
 
 class AnswerSerializer(serializers.ModelSerializer):
     problem = ProblemSerializer(read_only=True)
-    
+
     class Meta:
         model = Answer
-        fields = ["id", "exam_attempt", "problem", "answer_text", "selected_choice", "is_correct", "points_earned", "created_at", "updated_at"]
-        read_only_fields = ["exam_attempt", "is_correct", "points_earned", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "exam_attempt",
+            "problem",
+            "answer_text",
+            "selected_choice",
+            "is_correct",
+            "points_earned",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "exam_attempt",
+            "is_correct",
+            "points_earned",
+            "created_at",
+            "updated_at",
+        ]
 
 
 class ExamAttemptSerializer(serializers.ModelSerializer):
     exam_paper = ExamPaperSerializer(read_only=True)
     answers = AnswerSerializer(source="answer_set", many=True, read_only=True)
-    
+
     class Meta:
         model = ExamAttempt
         fields = [
@@ -336,4 +414,10 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["student", "total_score", "max_score", "created_at", "updated_at"]
+        read_only_fields = [
+            "student",
+            "total_score",
+            "max_score",
+            "created_at",
+            "updated_at",
+        ]
