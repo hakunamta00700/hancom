@@ -22,6 +22,10 @@ INSTALLED_APPS = [
     "core",
 ]
 
+# 테스트 설정
+if DEBUG:
+    INSTALLED_APPS += ["django_extensions"]  # 선택적
+
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
