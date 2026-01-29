@@ -1,6 +1,11 @@
+"use client";
+
 import Link from "next/link";
+import { useAuth } from "@/lib/auth/hooks";
 
 export function TopNav() {
+  const { user, logout } = useAuth();
+
   return (
     <header className="sticky top-0 z-20 border-b border-white/70 bg-white/70 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
@@ -14,8 +19,25 @@ export function TopNav() {
           </div>
         </Link>
         <div className="flex items-center gap-4 text-sm">
-          <span className="rounded-full bg-ink/5 px-3 py-1">안녕하세요, 운영자</span>
-          <button className="rounded-full border border-ink/20 px-3 py-1">알림 3</button>
+          {user && (
+            <>
+              <span className="rounded-full bg-ink/5 px-3 py-1">
+                안녕하세요, {user.name}
+              </span>
+              <Link
+                href="/settings"
+                className="rounded-full border border-ink/20 px-3 py-1 hover:bg-ink/5"
+              >
+                설정
+              </Link>
+              <button
+                onClick={logout}
+                className="rounded-full border border-ink/20 px-3 py-1 hover:bg-ink/5"
+              >
+                로그아웃
+              </button>
+            </>
+          )}
         </div>
       </div>
     </header>

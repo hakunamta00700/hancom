@@ -3,6 +3,9 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.html import format_html
 from . import models
 
+# PasswordResetToken도 admin에 등록
+admin.site.register(models.PasswordResetToken)
+
 
 @admin.register(models.Organization)
 class OrganizationAdmin(admin.ModelAdmin):

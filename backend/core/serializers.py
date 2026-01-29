@@ -26,6 +26,27 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email", "name", "role", "organization", "is_active", "created_at", "updated_at"]
+        read_only_fields = ["email", "role", "organization", "is_active", "created_at", "updated_at"]
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    old_password = serializers.CharField(write_only=True, required=True)
+    new_password = serializers.CharField(write_only=True, required=True, min_length=8)
+
+    def validate_old_password(self, value):
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("현재 비밀번호가 올바르지 않습니다.")
+        return value
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(write_only=True, required=True, min_length=8)
 
 
 class RegisterSerializer(serializers.Serializer):

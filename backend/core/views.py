@@ -1,10 +1,15 @@
-from rest_framework import permissions, viewsets
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.exceptions import PermissionDenied
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+import secrets
+from datetime import timedelta
+from django.utils import timezone
 from django.db import connection
 from django.core.cache import cache
+from django.core.mail import send_mail
+from django.conf import settings
+from rest_framework import permissions, viewsets, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied, NotFound, ValidationError
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .models import (
     Subject,
@@ -15,10 +20,15 @@ from .models import (
     ReviewTask,
     ExamPaper,
     Tag,
+    User,
+    PasswordResetToken,
 )
 from .serializers import (
     RegisterSerializer,
     UserSerializer,
+    PasswordChangeSerializer,
+    ForgotPasswordSerializer,
+    ResetPasswordSerializer,
     SubjectSerializer,
     ChapterSerializer,
     SourceDocumentSerializer,
@@ -79,6 +89,80 @@ class MeView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+
+class PasswordChangeView(APIView):
+    def post(self, request):
+        serializer = PasswordChangeSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        user.set_password(serializer.validated_data["new_password"])
+        user.save()
+        return Response({"detail": "비밀번호가 변경되었습니다."})
+
+
+class ForgotPasswordView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = ForgotPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+
+        try:
+            user = User.objects.get(email=email, is_active=True)
+        except User.DoesNotExist:
+            # 보안상 이메일 존재 여부를 노출하지 않음
+            return Response({"detail": "이메일로 재설정 링크를 전송했습니다."}, status=status.HTTP_200_OK)
+
+        # 기존 토큰 무효화
+        PasswordResetToken.objects.filter(user=user, used=False).update(used=True)
+
+        # 새 토큰 생성
+        token = secrets.token_urlsafe(32)
+        expires_at = timezone.now() + timedelta(hours=24)
+        PasswordResetToken.objects.create(user=user, token=token, expires_at=expires_at)
+
+        # 이메일 발송 (개발 환경에서는 콘솔 출력)
+        reset_url = f"{request.scheme}://{request.get_host()}/reset-password?token={token}"
+        if settings.DEBUG:
+            print(f"[개발용] 비밀번호 재설정 링크: {reset_url}")
+        else:
+            send_mail(
+                subject="비밀번호 재설정",
+                message=f"비밀번호 재설정 링크: {reset_url}",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+
+        return Response({"detail": "이메일로 재설정 링크를 전송했습니다."})
+
+
+class ResetPasswordView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = ResetPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token_str = serializer.validated_data["token"]
+        new_password = serializer.validated_data["new_password"]
+
+        try:
+            reset_token = PasswordResetToken.objects.get(
+                token=token_str, used=False, expires_at__gt=timezone.now()
+            )
+        except PasswordResetToken.DoesNotExist:
+            raise ValidationError({"token": "유효하지 않거나 만료된 토큰입니다."})
+
+        user = reset_token.user
+        user.set_password(new_password)
+        user.save()
+
+        reset_token.used = True
+        reset_token.save()
+
+        return Response({"detail": "비밀번호가 재설정되었습니다."})
 
 
 class SubjectViewSet(viewsets.ModelViewSet):

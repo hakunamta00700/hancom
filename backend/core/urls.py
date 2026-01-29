@@ -6,6 +6,9 @@ from .views import (
     HealthView,
     RegisterView,
     MeView,
+    PasswordChangeView,
+    ForgotPasswordView,
+    ResetPasswordView,
     SubjectViewSet,
     ChapterViewSet,
     SourceDocumentViewSet,
@@ -33,5 +36,8 @@ urlpatterns = [
     path("auth/login/", TokenObtainPairView.as_view(), name="token_login"),  # alias for test-cases.md
     path("auth/token/refresh/", TokenRefreshView.as_view()),
     path("auth/me/", MeView.as_view(), name="me"),
+    path("auth/password/change/", PasswordChangeView.as_view(), name="password_change"),
+    path("auth/forgot-password/", ForgotPasswordView.as_view(), name="forgot_password"),
+    path("auth/reset-password/", ResetPasswordView.as_view(), name="reset_password"),
     path("", include(router.urls)),
 ]

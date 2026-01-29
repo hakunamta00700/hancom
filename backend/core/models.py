@@ -289,3 +289,17 @@ class AuditLog(TimeStampedModel):
     details = models.JSONField(null=True, blank=True)
     ip_address = models.CharField(max_length=45, null=True, blank=True)
     user_agent = models.CharField(max_length=500, null=True, blank=True)
+
+
+class PasswordResetToken(TimeStampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    token = models.CharField(max_length=100, unique=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["token"]),
+            models.Index(fields=["expires_at"]),
+        ]
