@@ -1,6 +1,7 @@
 """
 Celery 설정
 """
+
 import os
 from celery import Celery
 

@@ -94,7 +94,9 @@ class MeView(APIView):
 
 class PasswordChangeView(APIView):
     def post(self, request):
-        serializer = PasswordChangeSerializer(data=request.data, context={"request": request})
+        serializer = PasswordChangeSerializer(
+            data=request.data, context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
         user = request.user
         user.set_password(serializer.validated_data["new_password"])
@@ -114,7 +116,10 @@ class ForgotPasswordView(APIView):
             user = User.objects.get(email=email, is_active=True)
         except User.DoesNotExist:
             # 보안상 이메일 존재 여부를 노출하지 않음
-            return Response({"detail": "이메일로 재설정 링크를 전송했습니다."}, status=status.HTTP_200_OK)
+            return Response(
+                {"detail": "이메일로 재설정 링크를 전송했습니다."},
+                status=status.HTTP_200_OK,
+            )
 
         # 기존 토큰 무효화
         PasswordResetToken.objects.filter(user=user, used=False).update(used=True)
@@ -125,7 +130,9 @@ class ForgotPasswordView(APIView):
         PasswordResetToken.objects.create(user=user, token=token, expires_at=expires_at)
 
         # 이메일 발송 (개발 환경에서는 콘솔 출력)
-        reset_url = f"{request.scheme}://{request.get_host()}/reset-password?token={token}"
+        reset_url = (
+            f"{request.scheme}://{request.get_host()}/reset-password?token={token}"
+        )
         if settings.DEBUG:
             print(f"[개발용] 비밀번호 재설정 링크: {reset_url}")
         else:
@@ -191,7 +198,9 @@ class SourceDocumentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return SourceDocument.objects.filter(organization=user.organization, deleted_at__isnull=True)
+        return SourceDocument.objects.filter(
+            organization=user.organization, deleted_at__isnull=True
+        )
 
     def get_permissions(self):
         if self.action in {"list", "retrieve", "create"}:
@@ -206,13 +215,15 @@ class IngestionJobViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = IngestionJob.objects.filter(source_document__organization=user.organization)
-        
+        queryset = IngestionJob.objects.filter(
+            source_document__organization=user.organization
+        )
+
         # 상태 필터링 지원
         status_filter = self.request.query_params.get("status")
         if status_filter:
             queryset = queryset.filter(status=status_filter)
-        
+
         return queryset.select_related("source_document")
 
     @action(detail=True, methods=["post"])
@@ -224,10 +235,11 @@ class IngestionJobViewSet(viewsets.ReadOnlyModelViewSet):
                 {"detail": "실패한 작업만 재시도할 수 있습니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         from .tasks import retry_ingestion_job
+
         retry_ingestion_job.delay(str(job.id))
-        
+
         return Response({"detail": "재시도 작업이 등록되었습니다."})
 
 
@@ -236,9 +248,47 @@ class ProblemViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Problem.objects.filter(organization=user.organization, deleted_at__isnull=True).select_related("reviewed_by")
+        queryset = Problem.objects.filter(
+            organization=user.organization, deleted_at__isnull=True
+        ).select_related("reviewed_by", "source_document").prefetch_related("problemtag_set__tag")
+        
+        # 교사/학생은 공개 문항만
         if user.role not in {"admin", "operator"}:
             queryset = queryset.filter(is_public=True)
+        
+        # 검색 필터링
+        subject_id = self.request.query_params.get("subject_id")
+        if subject_id:
+            queryset = queryset.filter(problemtag_set__tag__category="subject", problemtag_set__tag__id=subject_id).distinct()
+        
+        difficulty_min = self.request.query_params.get("difficulty_min")
+        if difficulty_min:
+            try:
+                queryset = queryset.filter(difficulty__gte=int(difficulty_min))
+            except ValueError:
+                pass
+        
+        difficulty_max = self.request.query_params.get("difficulty_max")
+        if difficulty_max:
+            try:
+                queryset = queryset.filter(difficulty__lte=int(difficulty_max))
+            except ValueError:
+                pass
+        
+        problem_type = self.request.query_params.get("problem_type")
+        if problem_type:
+            queryset = queryset.filter(problem_type=problem_type)
+        
+        keyword = self.request.query_params.get("keyword")
+        if keyword:
+            # text_content JSON 필드에서 키워드 검색
+            queryset = queryset.filter(text_content__icontains=keyword)
+        
+        # 정렬
+        ordering = self.request.query_params.get("ordering", "-created_at")
+        if ordering:
+            queryset = queryset.order_by(ordering)
+        
         return queryset
 
     def perform_create(self, serializer):
@@ -259,12 +309,13 @@ class ProblemViewSet(viewsets.ModelViewSet):
                 {"detail": "삭제된 문항이 아닙니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        
+
         problem.deleted_at = None
         problem.save()
-        
+
         # AuditLog 기록
         from .models import AuditLog
+
         AuditLog.objects.create(
             user=request.user,
             organization=request.user.organization,
@@ -273,9 +324,9 @@ class ProblemViewSet(viewsets.ModelViewSet):
             resource_id=problem.id,
             ip_address=self._get_client_ip(request),
         )
-        
+
         return Response({"detail": "문항이 복구되었습니다."})
-    
+
     def _get_client_ip(self, request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
         if x_forwarded_for:
@@ -288,13 +339,15 @@ class ReviewTaskViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = ReviewTask.objects.filter(problem__organization=user.organization).select_related("problem", "assigned_to")
-        
+        queryset = ReviewTask.objects.filter(
+            problem__organization=user.organization
+        ).select_related("problem", "assigned_to")
+
         # 상태 필터링
         status_filter = self.request.query_params.get("status")
         if status_filter:
             queryset = queryset.filter(status=status_filter)
-        
+
         return queryset
 
     def get_permissions(self):
@@ -307,21 +360,22 @@ class ReviewTaskViewSet(viewsets.ModelViewSet):
         """문항 승인"""
         task = self.get_object()
         problem = task.problem
-        
+
         # 문제 공개 처리
         problem.is_public = True
         problem.reviewed_at = timezone.now()
         problem.reviewed_by = request.user
         problem.save()
-        
+
         # ReviewTask 완료
         task.status = "approved"
         task.reviewed_at = timezone.now()
         task.assigned_to = request.user
         task.save()
-        
+
         # ReviewHistory 기록
         from .models import ReviewHistory
+
         ReviewHistory.objects.create(
             problem=problem,
             review_task=task,
@@ -330,9 +384,10 @@ class ReviewTaskViewSet(viewsets.ModelViewSet):
             new_value="approved",
             changed_by=request.user,
         )
-        
+
         # AuditLog 기록
         from .models import AuditLog
+
         AuditLog.objects.create(
             user=request.user,
             organization=request.user.organization,
@@ -341,7 +396,7 @@ class ReviewTaskViewSet(viewsets.ModelViewSet):
             resource_id=problem.id,
             ip_address=self._get_client_ip(request),
         )
-        
+
         return Response({"detail": "문항이 승인되었습니다."})
 
     @action(detail=True, methods=["post"])
@@ -349,18 +404,19 @@ class ReviewTaskViewSet(viewsets.ModelViewSet):
         """문항 반려"""
         task = self.get_object()
         problem = task.problem
-        
+
         reason = request.data.get("reason", "")
-        
+
         # ReviewTask 반려
         task.status = "rejected"
         task.reviewed_at = timezone.now()
         task.review_notes = reason
         task.assigned_to = request.user
         task.save()
-        
+
         # ReviewHistory 기록
         from .models import ReviewHistory
+
         ReviewHistory.objects.create(
             problem=problem,
             review_task=task,
@@ -369,9 +425,10 @@ class ReviewTaskViewSet(viewsets.ModelViewSet):
             new_value="rejected",
             changed_by=request.user,
         )
-        
+
         # AuditLog 기록
         from .models import AuditLog
+
         AuditLog.objects.create(
             user=request.user,
             organization=request.user.organization,
@@ -381,7 +438,7 @@ class ReviewTaskViewSet(viewsets.ModelViewSet):
             details={"reason": reason},
             ip_address=self._get_client_ip(request),
         )
-        
+
         return Response({"detail": "문항이 반려되었습니다."})
 
     def _get_client_ip(self, request):
@@ -395,10 +452,10 @@ class ReviewTaskViewSet(viewsets.ModelViewSet):
         """검수 통계"""
         from django.db.models import Count, Q
         from .models import ReviewTask
-        
+
         user = request.user
         queryset = ReviewTask.objects.filter(problem__organization=user.organization)
-        
+
         stats = {
             "total": queryset.count(),
             "pending": queryset.filter(status="pending").count(),
@@ -406,7 +463,7 @@ class ReviewTaskViewSet(viewsets.ModelViewSet):
             "approved": queryset.filter(status="approved").count(),
             "rejected": queryset.filter(status="rejected").count(),
         }
-        
+
         return Response(stats)
 
 
@@ -415,10 +472,14 @@ class ExamPaperViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return ExamPaper.objects.filter(organization=user.organization, deleted_at__isnull=True)
+        return ExamPaper.objects.filter(
+            organization=user.organization, deleted_at__isnull=True
+        )
 
     def perform_create(self, serializer):
-        serializer.save(organization=self.request.user.organization, created_by=self.request.user)
+        serializer.save(
+            organization=self.request.user.organization, created_by=self.request.user
+        )
 
     def get_permissions(self):
         if self.action in {"create", "update", "partial_update", "destroy"}:

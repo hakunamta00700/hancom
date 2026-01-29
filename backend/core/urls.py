@@ -34,7 +34,9 @@ urlpatterns = [
     path("health/", HealthView.as_view(), name="health"),
     path("auth/register/", RegisterView.as_view()),
     path("auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("auth/login/", TokenObtainPairView.as_view(), name="token_login"),  # alias for test-cases.md
+    path(
+        "auth/login/", TokenObtainPairView.as_view(), name="token_login"
+    ),  # alias for test-cases.md
     path("auth/token/refresh/", TokenRefreshView.as_view()),
     path("auth/me/", MeView.as_view(), name="me"),
     path("auth/password/change/", PasswordChangeView.as_view(), name="password_change"),

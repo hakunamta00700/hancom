@@ -1,5 +1,9 @@
 import uuid
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
+from django.contrib.auth.models import (
+    AbstractBaseUser,
+    PermissionsMixin,
+    BaseUserManager,
+)
 from django.db import models
 from django.utils import timezone
 
@@ -65,8 +69,12 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=100)
-    role = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.TEACHER)
-    organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, blank=True)
+    role = models.CharField(
+        max_length=20, choices=UserRole.choices, default=UserRole.TEACHER
+    )
+    organization = models.ForeignKey(
+        Organization, on_delete=models.SET_NULL, null=True, blank=True
+    )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
@@ -112,7 +120,9 @@ class SourceDocumentStatus(models.TextChoices):
 
 class SourceDocument(TimeStampedModel, SoftDeleteModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, blank=True)
+    organization = models.ForeignKey(
+        Organization, on_delete=models.SET_NULL, null=True, blank=True
+    )
     title = models.CharField(max_length=500)
     file = models.FileField(upload_to="source_documents/")
     file_type = models.CharField(max_length=20)
@@ -123,8 +133,14 @@ class SourceDocument(TimeStampedModel, SoftDeleteModel):
     exam_year = models.IntegerField(null=True, blank=True)
     exam_month = models.IntegerField(null=True, blank=True)
     exam_round = models.IntegerField(null=True, blank=True)
-    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    status = models.CharField(max_length=20, choices=SourceDocumentStatus.choices, default=SourceDocumentStatus.PENDING)
+    uploaded_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=SourceDocumentStatus.choices,
+        default=SourceDocumentStatus.PENDING,
+    )
 
     def __str__(self):
         return self.title
@@ -140,7 +156,9 @@ class IngestionStatus(models.TextChoices):
 class IngestionJob(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     source_document = models.ForeignKey(SourceDocument, on_delete=models.CASCADE)
-    status = models.CharField(max_length=20, choices=IngestionStatus.choices, default=IngestionStatus.PENDING)
+    status = models.CharField(
+        max_length=20, choices=IngestionStatus.choices, default=IngestionStatus.PENDING
+    )
     progress = models.IntegerField(default=0)
     pages_processed = models.IntegerField(default=0)
     problems_extracted = models.IntegerField(default=0)
@@ -158,18 +176,30 @@ class ProblemType(models.TextChoices):
 
 class Problem(TimeStampedModel, SoftDeleteModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, blank=True)
-    source_document = models.ForeignKey(SourceDocument, on_delete=models.SET_NULL, null=True, blank=True)
+    organization = models.ForeignKey(
+        Organization, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    source_document = models.ForeignKey(
+        SourceDocument, on_delete=models.SET_NULL, null=True, blank=True
+    )
     problem_number = models.IntegerField(null=True, blank=True)
     page_number = models.IntegerField(null=True, blank=True)
     image_file = models.FileField(upload_to="problem_images/", null=True, blank=True)
     text_content = models.JSONField(null=True, blank=True)
-    problem_type = models.CharField(max_length=30, choices=ProblemType.choices, null=True, blank=True)
+    problem_type = models.CharField(
+        max_length=30, choices=ProblemType.choices, null=True, blank=True
+    )
     difficulty = models.IntegerField(null=True, blank=True)
     estimated_time = models.IntegerField(null=True, blank=True)
     is_public = models.BooleanField(default=False)
     reviewed_at = models.DateTimeField(null=True, blank=True)
-    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="reviewed_problems")
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_problems",
+    )
 
 
 class Passage(TimeStampedModel):
@@ -213,7 +243,9 @@ class ProblemTag(TimeStampedModel):
     problem = models.ForeignKey(Problem, on_delete=models.CASCADE)
     tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
     confidence = models.FloatField(null=True, blank=True)
-    tagged_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    tagged_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True
+    )
 
     class Meta:
         unique_together = ("problem", "tag")
@@ -228,14 +260,20 @@ class ProblemChapter(TimeStampedModel):
 
 class ExamPaper(TimeStampedModel, SoftDeleteModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, blank=True)
+    organization = models.ForeignKey(
+        Organization, on_delete=models.SET_NULL, null=True, blank=True
+    )
     title = models.CharField(max_length=500)
     description = models.TextField(null=True, blank=True)
-    subject = models.ForeignKey(Subject, on_delete=models.SET_NULL, null=True, blank=True)
+    subject = models.ForeignKey(
+        Subject, on_delete=models.SET_NULL, null=True, blank=True
+    )
     total_problems = models.IntegerField()
     estimated_time = models.IntegerField(null=True, blank=True)
     difficulty_distribution = models.JSONField(null=True, blank=True)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True
+    )
     pdf_file = models.FileField(upload_to="exam_papers/", null=True, blank=True)
     is_published = models.BooleanField(default=False)
     published_at = models.DateTimeField(null=True, blank=True)
@@ -262,9 +300,15 @@ class ReviewStatus(models.TextChoices):
 class ReviewTask(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     problem = models.ForeignKey(Problem, on_delete=models.CASCADE)
-    ingestion_job = models.ForeignKey(IngestionJob, on_delete=models.SET_NULL, null=True, blank=True)
-    status = models.CharField(max_length=20, choices=ReviewStatus.choices, default=ReviewStatus.PENDING)
-    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    ingestion_job = models.ForeignKey(
+        IngestionJob, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    status = models.CharField(
+        max_length=20, choices=ReviewStatus.choices, default=ReviewStatus.PENDING
+    )
+    assigned_to = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True
+    )
     reviewed_at = models.DateTimeField(null=True, blank=True)
     review_notes = models.TextField(null=True, blank=True)
 
@@ -272,17 +316,23 @@ class ReviewTask(TimeStampedModel):
 class ReviewHistory(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     problem = models.ForeignKey(Problem, on_delete=models.CASCADE)
-    review_task = models.ForeignKey(ReviewTask, on_delete=models.SET_NULL, null=True, blank=True)
+    review_task = models.ForeignKey(
+        ReviewTask, on_delete=models.SET_NULL, null=True, blank=True
+    )
     changed_field = models.CharField(max_length=100)
     old_value = models.TextField(null=True, blank=True)
     new_value = models.TextField(null=True, blank=True)
-    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    changed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True
+    )
 
 
 class AuditLog(TimeStampedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-    organization = models.ForeignKey(Organization, on_delete=models.SET_NULL, null=True, blank=True)
+    organization = models.ForeignKey(
+        Organization, on_delete=models.SET_NULL, null=True, blank=True
+    )
     action_type = models.CharField(max_length=50)
     resource_type = models.CharField(max_length=50, null=True, blank=True)
     resource_id = models.UUIDField(null=True, blank=True)

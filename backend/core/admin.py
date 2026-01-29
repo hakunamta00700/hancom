@@ -16,7 +16,15 @@ class OrganizationAdmin(admin.ModelAdmin):
 
 @admin.register(models.User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ["email", "name", "role", "organization", "is_active", "is_staff", "created_at"]
+    list_display = [
+        "email",
+        "name",
+        "role",
+        "organization",
+        "is_active",
+        "is_staff",
+        "created_at",
+    ]
     list_filter = ["role", "is_active", "is_staff", "organization", "created_at"]
     search_fields = ["email", "name"]
     fieldsets = BaseUserAdmin.fieldsets + (
@@ -45,15 +53,36 @@ class ChapterAdmin(admin.ModelAdmin):
 
 @admin.register(models.SourceDocument)
 class SourceDocumentAdmin(admin.ModelAdmin):
-    list_display = ["title", "organization", "file_type", "status", "uploaded_by", "created_at"]
+    list_display = [
+        "title",
+        "organization",
+        "file_type",
+        "status",
+        "uploaded_by",
+        "created_at",
+    ]
     list_filter = ["status", "file_type", "organization", "created_at"]
     search_fields = ["title", "source"]
-    readonly_fields = ["file_type", "file_size", "uploaded_by", "created_at", "updated_at"]
+    readonly_fields = [
+        "file_type",
+        "file_size",
+        "uploaded_by",
+        "created_at",
+        "updated_at",
+    ]
 
 
 @admin.register(models.IngestionJob)
 class IngestionJobAdmin(admin.ModelAdmin):
-    list_display = ["id", "source_document", "status", "progress", "pages_processed", "problems_extracted", "created_at"]
+    list_display = [
+        "id",
+        "source_document",
+        "status",
+        "progress",
+        "pages_processed",
+        "problems_extracted",
+        "created_at",
+    ]
     list_filter = ["status", "created_at"]
     search_fields = ["source_document__title"]
     readonly_fields = ["created_at", "updated_at", "started_at", "completed_at"]
@@ -61,8 +90,22 @@ class IngestionJobAdmin(admin.ModelAdmin):
 
 @admin.register(models.Problem)
 class ProblemAdmin(admin.ModelAdmin):
-    list_display = ["id", "problem_number", "organization", "problem_type", "difficulty", "is_public", "reviewed_at"]
-    list_filter = ["problem_type", "difficulty", "is_public", "organization", "created_at"]
+    list_display = [
+        "id",
+        "problem_number",
+        "organization",
+        "problem_type",
+        "difficulty",
+        "is_public",
+        "reviewed_at",
+    ]
+    list_filter = [
+        "problem_type",
+        "difficulty",
+        "is_public",
+        "organization",
+        "created_at",
+    ]
     search_fields = ["text_content"]
     readonly_fields = ["created_at", "updated_at", "reviewed_at"]
 
@@ -77,21 +120,42 @@ class TagAdmin(admin.ModelAdmin):
 
 @admin.register(models.ReviewTask)
 class ReviewTaskAdmin(admin.ModelAdmin):
-    list_display = ["id", "problem", "status", "assigned_to", "reviewed_at", "created_at"]
+    list_display = [
+        "id",
+        "problem",
+        "status",
+        "assigned_to",
+        "reviewed_at",
+        "created_at",
+    ]
     list_filter = ["status", "created_at"]
     search_fields = ["problem__text_content", "review_notes"]
 
 
 @admin.register(models.ExamPaper)
 class ExamPaperAdmin(admin.ModelAdmin):
-    list_display = ["title", "organization", "subject", "total_problems", "is_published", "created_by", "created_at"]
+    list_display = [
+        "title",
+        "organization",
+        "subject",
+        "total_problems",
+        "is_published",
+        "created_by",
+        "created_at",
+    ]
     list_filter = ["is_published", "organization", "subject", "created_at"]
     search_fields = ["title", "description"]
 
 
 @admin.register(models.AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
-    list_display = ["action_type", "user", "organization", "resource_type", "created_at"]
+    list_display = [
+        "action_type",
+        "user",
+        "organization",
+        "resource_type",
+        "created_at",
+    ]
     list_filter = ["action_type", "resource_type", "created_at"]
     search_fields = ["action_type", "user__email"]
     readonly_fields = ["created_at", "updated_at"]

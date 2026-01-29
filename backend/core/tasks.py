@@ -1,6 +1,7 @@
 """
 Celery 태스크 정의
 """
+
 import os
 import sys
 from pathlib import Path
@@ -31,14 +32,16 @@ from .models import SourceDocument, IngestionJob, Problem, ReviewTask
 def extract_problems_task(self, ingestion_job_id: str):
     """
     문항 추출 작업을 수행하는 Celery 태스크
-    
+
     Args:
         ingestion_job_id: IngestionJob의 UUID 문자열
     """
     from django.db import transaction
 
     try:
-        job = IngestionJob.objects.select_related("source_document").get(id=ingestion_job_id)
+        job = IngestionJob.objects.select_related("source_document").get(
+            id=ingestion_job_id
+        )
         doc = job.source_document
 
         # 작업 시작
@@ -59,6 +62,7 @@ def extract_problems_task(self, ingestion_job_id: str):
 
         # PDF 열기
         import fitz  # PyMuPDF
+
         pdf_doc = fitz.open(file_path)
         page_count = len(pdf_doc)
 
@@ -105,7 +109,9 @@ def extract_problems_task(self, ingestion_job_id: str):
                             )
 
                             # 이미지 파일 저장
-                            image_filename = f"problem_{problem.id}_{page_num}_{idx}.png"
+                            image_filename = (
+                                f"problem_{problem.id}_{page_num}_{idx}.png"
+                            )
                             problem.image_file.save(
                                 image_filename,
                                 ContentFile(image_content),
@@ -120,15 +126,19 @@ def extract_problems_task(self, ingestion_job_id: str):
                                 ingestion_job=job,
                                 status="pending",
                             )
-                            
+
                             # 자동 태깅 실행
                             from .tagging import auto_tag_problem
+
                             try:
                                 auto_tag_problem(str(problem.id), use_real_llm=False)
                             except Exception as e:
                                 import logging
+
                                 logger = logging.getLogger(__name__)
-                                logger.error(f"문항 {problem.id} 자동 태깅 실패: {str(e)}")
+                                logger.error(
+                                    f"문항 {problem.id} 자동 태깅 실패: {str(e)}"
+                                )
 
                     total_problems += count
 
@@ -192,7 +202,7 @@ def extract_problems_task(self, ingestion_job_id: str):
 def retry_ingestion_job(ingestion_job_id: str):
     """
     실패한 추출 작업을 재시도
-    
+
     Args:
         ingestion_job_id: IngestionJob의 UUID 문자열
     """
