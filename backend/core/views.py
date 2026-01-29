@@ -20,6 +20,7 @@ from .models import (
     Problem,
     ReviewTask,
     ExamPaper,
+    ExamTemplate,
     Tag,
     User,
     UserRole,
@@ -501,7 +502,7 @@ class ExamPaperViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = ExamPaper.objects.filter(
             organization=user.organization, deleted_at__isnull=True
-        ).prefetch_related("exampaperitem_set__problem")
+        ).prefetch_related("exampaperitem_set__problem", "template")
 
         # 학생은 배포된 시험지만
         if user.role == "student":
@@ -719,6 +720,29 @@ class ExamPaperViewSet(viewsets.ModelViewSet):
 class TagViewSet(viewsets.ModelViewSet):
     serializer_class = TagSerializer
     queryset = Tag.objects.all()
+
+
+class ExamTemplateViewSet(viewsets.ModelViewSet):
+    from .serializers import ExamTemplateSerializer
+    
+    serializer_class = ExamTemplateSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        # 기본 템플릿(is_default=True)은 모든 조직에서 공유, 커스텀 템플릿은 조직별
+        return ExamTemplate.objects.filter(
+            models.Q(is_default=True) | models.Q(organization=user.organization)
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(
+            organization=self.request.user.organization, created_by=self.request.user
+        )
+
+    def get_permissions(self):
+        if self.request.user.role not in {"admin", "teacher"}:
+            raise PermissionDenied("Insufficient permissions")
+        return [permissions.IsAuthenticated()]
 
 
 class ClassViewSet(viewsets.ModelViewSet):

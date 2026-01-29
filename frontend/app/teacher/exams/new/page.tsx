@@ -6,21 +6,25 @@ import { AppShell } from "@/components/AppShell";
 import { examsApi } from "@/lib/api/exams";
 import { subjectsApi } from "@/lib/api/subjects";
 import { problemsApi } from "@/lib/api/problems";
+import { templatesApi } from "@/lib/api/templates";
 import type { ExamPaper, ExamPaperItem } from "@/lib/api/exams";
 import type { Problem } from "@/lib/api/problems";
 import type { Subject, Chapter } from "@/lib/api/subjects";
+import type { ExamTemplate } from "@/lib/api/templates";
 
 export default function ExamBuilderPage() {
   const router = useRouter();
   const [examPaper, setExamPaper] = useState<ExamPaper | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [templates, setTemplates] = useState<ExamTemplate[]>([]);
   const [recommendedProblems, setRecommendedProblems] = useState<Problem[]>([]);
   
   // 시험지 정보
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [subjectId, setSubjectId] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [difficultyMin, setDifficultyMin] = useState("1");
@@ -32,6 +36,7 @@ export default function ExamBuilderPage() {
 
   useEffect(() => {
     loadSubjects();
+    loadTemplates();
     createDraft();
   }, []);
 
@@ -53,6 +58,20 @@ export default function ExamBuilderPage() {
       }
     } catch (err) {
       console.error("과목 로드 실패:", err);
+    }
+  };
+
+  const loadTemplates = async () => {
+    try {
+      const response = await templatesApi.list();
+      setTemplates(response.results);
+      // 기본 템플릿 선택
+      const defaultTemplate = response.results.find((t) => t.is_default);
+      if (defaultTemplate) {
+        setSelectedTemplateId(defaultTemplate.id);
+      }
+    } catch (err) {
+      console.error("템플릿 로드 실패:", err);
     }
   };
 
@@ -204,6 +223,7 @@ export default function ExamBuilderPage() {
         title,
         description: description || null,
         subject: subjectId || null,
+        template: selectedTemplateId || null,
       });
       setError(null);
       alert("저장되었습니다.");
@@ -273,6 +293,24 @@ export default function ExamBuilderPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 disabled={loading}
               />
+              <div>
+                <label className="text-sm text-slate">템플릿 선택</label>
+                <select
+                  className="mt-2 w-full rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm"
+                  value={selectedTemplateId}
+                  onChange={(e) => setSelectedTemplateId(e.target.value)}
+                  disabled={loading}
+                >
+                  <option value="">템플릿 없음</option>
+                  {templates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.is_default ? "⭐ " : ""}
+                      {template.name}
+                      {template.description ? ` - ${template.description}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
           <div className="card p-6">

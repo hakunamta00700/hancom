@@ -11,6 +11,7 @@ from .models import (
     ReviewTask,
     ExamPaper,
     ExamPaperItem,
+    ExamTemplate,
     Tag,
     Class,
     ClassMember,
@@ -243,8 +244,17 @@ class ExamPaperItemSerializer(serializers.ModelSerializer):
         read_only_fields = ["exam_paper", "created_at", "updated_at"]
 
 
+class ExamTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamTemplate
+        fields = ["id", "organization", "name", "description", "is_default", "created_by", "settings", "created_at", "updated_at"]
+        read_only_fields = ["organization", "created_by", "created_at", "updated_at"]
+
+
 class ExamPaperSerializer(serializers.ModelSerializer):
     items = ExamPaperItemSerializer(source="exampaperitem_set", many=True, read_only=True)
+    template = ExamTemplateSerializer(read_only=True)
+    template_id = serializers.UUIDField(write_only=True, required=False, allow_null=True)
     
     class Meta:
         model = ExamPaper
@@ -254,6 +264,8 @@ class ExamPaperSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "subject",
+            "template",
+            "template_id",
             "total_problems",
             "estimated_time",
             "difficulty_distribution",

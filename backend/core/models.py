@@ -258,6 +258,25 @@ class ProblemChapter(TimeStampedModel):
     is_primary = models.BooleanField(default=False)
 
 
+class ExamTemplate(TimeStampedModel):
+    """시험지 템플릿"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        Organization, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    name = models.CharField(max_length=200)
+    description = models.TextField(null=True, blank=True)
+    is_default = models.BooleanField(default=False)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    # 템플릿 설정 (JSON)
+    settings = models.JSONField(default=dict, help_text="템플릿 설정 (페이지 크기, 여백, 폰트 등)")
+    
+    class Meta:
+        unique_together = ("organization", "name")
+
+
 class ExamPaper(TimeStampedModel, SoftDeleteModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(
@@ -267,6 +286,9 @@ class ExamPaper(TimeStampedModel, SoftDeleteModel):
     description = models.TextField(null=True, blank=True)
     subject = models.ForeignKey(
         Subject, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    template = models.ForeignKey(
+        ExamTemplate, on_delete=models.SET_NULL, null=True, blank=True
     )
     total_problems = models.IntegerField()
     estimated_time = models.IntegerField(null=True, blank=True)
