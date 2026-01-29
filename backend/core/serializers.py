@@ -12,6 +12,10 @@ from .models import (
     ExamPaper,
     ExamPaperItem,
     Tag,
+    Class,
+    ClassMember,
+    ExamAttempt,
+    Answer,
 )
 
 
@@ -268,3 +272,41 @@ class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
         fields = ["id", "name", "category", "display_order", "is_active", "created_at"]
+
+
+class ClassSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Class
+        fields = ["id", "organization", "name", "description", "created_by", "created_at", "updated_at"]
+        read_only_fields = ["organization", "created_by", "created_at", "updated_at"]
+
+
+class AnswerSerializer(serializers.ModelSerializer):
+    problem = ProblemSerializer(read_only=True)
+    
+    class Meta:
+        model = Answer
+        fields = ["id", "exam_attempt", "problem", "answer_text", "selected_choice", "is_correct", "points_earned", "created_at", "updated_at"]
+        read_only_fields = ["exam_attempt", "is_correct", "points_earned", "created_at", "updated_at"]
+
+
+class ExamAttemptSerializer(serializers.ModelSerializer):
+    exam_paper = ExamPaperSerializer(read_only=True)
+    answers = AnswerSerializer(source="answer_set", many=True, read_only=True)
+    
+    class Meta:
+        model = ExamAttempt
+        fields = [
+            "id",
+            "exam_paper",
+            "student",
+            "status",
+            "started_at",
+            "submitted_at",
+            "total_score",
+            "max_score",
+            "answers",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["student", "total_score", "max_score", "created_at", "updated_at"]

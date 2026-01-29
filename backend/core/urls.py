@@ -17,6 +17,8 @@ from .views import (
     ReviewTaskViewSet,
     ExamPaperViewSet,
     TagViewSet,
+    ClassViewSet,
+    ExamAttemptViewSet,
 )
 
 router = DefaultRouter()

@@ -23,6 +23,9 @@ from .models import (
     Tag,
     User,
     PasswordResetToken,
+    Class,
+    ExamAttempt,
+    ExamAttemptStatus,
 )
 from .serializers import (
     RegisterSerializer,
@@ -38,6 +41,9 @@ from .serializers import (
     ReviewTaskSerializer,
     ExamPaperSerializer,
     TagSerializer,
+    ClassSerializer,
+    ExamAttemptSerializer,
+    AnswerSerializer,
 )
 
 
@@ -625,3 +631,189 @@ class ExamPaperViewSet(viewsets.ModelViewSet):
 class TagViewSet(viewsets.ModelViewSet):
     serializer_class = TagSerializer
     queryset = Tag.objects.all()
+
+
+class ClassViewSet(viewsets.ModelViewSet):
+    from .serializers import ClassSerializer
+    serializer_class = ClassSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return Class.objects.filter(organization=user.organization)
+
+    def perform_create(self, serializer):
+        serializer.save(organization=self.request.user.organization, created_by=self.request.user)
+
+    def get_permissions(self):
+        if self.request.user.role not in {"admin", "teacher"}:
+            raise PermissionDenied("Insufficient permissions")
+        return [permissions.IsAuthenticated()]
+
+
+class ExamAttemptViewSet(viewsets.ModelViewSet):
+    serializer_class = ExamAttemptSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == "student":
+            return ExamAttempt.objects.filter(student=user).select_related("exam_paper").prefetch_related("answer_set__problem")
+        # 교사/운영자는 자신의 조직 학생들의 시도만 조회
+        return ExamAttempt.objects.filter(student__organization=user.organization).select_related("exam_paper", "student").prefetch_related("answer_set__problem")
+
+    def perform_create(self, serializer):
+        serializer.save(student=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        """시험지 풀이 시작"""
+        exam_paper_id = request.data.get("exam_paper_id")
+        if not exam_paper_id:
+            return Response(
+                {"detail": "exam_paper_id가 필요합니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # 기존 시도 확인
+        existing = ExamAttempt.objects.filter(
+            student=request.user,
+            exam_paper_id=exam_paper_id,
+            status=ExamAttemptStatus.IN_PROGRESS
+        ).first()
+        
+        if existing:
+            from .serializers import ExamAttemptSerializer
+            return Response(ExamAttemptSerializer(existing).data)
+        
+        # 새 시도 생성
+        serializer = self.get_serializer(data={"exam_paper": exam_paper_id})
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=True, methods=["post", "patch"])
+    def save_answer(self, request, pk=None):
+        """답안 저장"""
+        from .models import Answer
+        
+        attempt = self.get_object()
+        
+        if attempt.status != ExamAttemptStatus.IN_PROGRESS:
+            return Response(
+                {"detail": "제출된 시험지는 수정할 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        problem_id = request.data.get("problem_id")
+        answer_text = request.data.get("answer_text")
+        selected_choice = request.data.get("selected_choice")
+        
+        if not problem_id:
+            return Response(
+                {"detail": "problem_id가 필요합니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        answer, created = Answer.objects.get_or_create(
+            exam_attempt=attempt,
+            problem_id=problem_id,
+        )
+        
+        if answer_text is not None:
+            answer.answer_text = answer_text
+        if selected_choice is not None:
+            answer.selected_choice = selected_choice
+        
+        answer.save()
+        
+        from .serializers import AnswerSerializer
+        return Response(AnswerSerializer(answer).data)
+
+    def get_permissions(self):
+        return [permissions.IsAuthenticated()]
+
+    @action(detail=True, methods=["post"])
+    def submit(self, request, pk=None):
+        """시험지 제출"""
+        from .models import Answer, Choice, ExamPaperItem
+        
+        attempt = self.get_object()
+        
+        if attempt.status != ExamAttemptStatus.IN_PROGRESS:
+            return Response(
+                {"detail": "이미 제출된 시험지입니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # 자동 채점 (객관식 중심)
+        total_score = 0
+        max_score = 0
+        
+        # 시험지의 모든 문항에 대해 채점
+        exam_items = ExamPaperItem.objects.filter(exam_paper=attempt.exam_paper).select_related("problem")
+        
+        for item in exam_items:
+            problem = item.problem
+            max_score += item.points
+            
+            # 답안 찾기
+            answer, _ = Answer.objects.get_or_create(
+                exam_attempt=attempt,
+                problem=problem,
+            )
+            
+            # 객관식 채점
+            if problem.problem_type == "multiple_choice" and answer.selected_choice:
+                correct_choice = Choice.objects.filter(problem=problem, is_correct=True).first()
+                if correct_choice and correct_choice.number == answer.selected_choice:
+                    answer.is_correct = True
+                    answer.points_earned = item.points
+                    total_score += item.points
+                else:
+                    answer.is_correct = False
+                    answer.points_earned = 0
+                answer.save()
+            # 서술형은 채점하지 않음 (나중에 수동 채점)
+        
+        attempt.status = ExamAttemptStatus.SUBMITTED
+        attempt.submitted_at = timezone.now()
+        attempt.total_score = total_score
+        attempt.max_score = max_score
+        attempt.save()
+        
+        return Response(self.get_serializer(attempt).data)
+
+    @action(detail=True, methods=["get"])
+    def result(self, request, pk=None):
+        """결과 조회"""
+        attempt = self.get_object()
+        
+        if attempt.status == ExamAttemptStatus.IN_PROGRESS:
+            return Response(
+                {"detail": "아직 제출되지 않은 시험지입니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        serializer = self.get_serializer(attempt)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def incorrect_answers(self, request):
+        """오답 노트"""
+        user = request.user
+        attempts = ExamAttempt.objects.filter(
+            student=user,
+            status__in=[ExamAttemptStatus.SUBMITTED, ExamAttemptStatus.GRADED]
+        ).prefetch_related("answer_set__problem")
+        
+        incorrect_answers = []
+        for attempt in attempts:
+            for answer in attempt.answer_set.filter(is_correct=False):
+                incorrect_answers.append({
+                    "attempt_id": str(attempt.id),
+                    "exam_paper_title": attempt.exam_paper.title,
+                    "problem": ProblemSerializer(answer.problem).data,
+                    "my_answer": answer.answer_text or answer.selected_choice,
+                    "submitted_at": attempt.submitted_at.isoformat() if attempt.submitted_at else None,
+                })
+        
+        return Response({"results": incorrect_answers})
