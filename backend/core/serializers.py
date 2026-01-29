@@ -130,7 +130,14 @@ class SourceDocumentSerializer(serializers.ModelSerializer):
         validated_data["organization"] = request.user.organization
         validated_data["uploaded_by"] = request.user
         source_document = super().create(validated_data)
-        IngestionJob.objects.create(source_document=source_document)
+        
+        # IngestionJob 생성 및 Celery 태스크 시작
+        ingestion_job = IngestionJob.objects.create(source_document=source_document)
+        
+        # 비동기 추출 작업 시작
+        from .tasks import extract_problems_task
+        extract_problems_task.delay(str(ingestion_job.id))
+        
         return source_document
 
 

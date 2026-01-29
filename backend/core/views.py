@@ -9,6 +9,7 @@ from rest_framework import permissions, viewsets, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied, NotFound, ValidationError
+from rest_framework.decorators import action
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .models import (
@@ -44,7 +45,7 @@ class HealthView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        status = {"status": "ok"}
+        status_dict = {"status": "ok"}
         checks = {}
 
         # DB 연결 확인
@@ -54,7 +55,7 @@ class HealthView(APIView):
             checks["database"] = "ok"
         except Exception as e:
             checks["database"] = f"error: {str(e)}"
-            status["status"] = "degraded"
+            status_dict["status"] = "degraded"
 
         # Redis 연결 확인
         try:
@@ -63,11 +64,11 @@ class HealthView(APIView):
             checks["redis"] = "ok"
         except Exception as e:
             checks["redis"] = f"error: {str(e)}"
-            status["status"] = "degraded"
+            status_dict["status"] = "degraded"
 
-        status["checks"] = checks
-        status_code = 200 if status["status"] == "ok" else 503
-        return Response(status, status=status_code)
+        status_dict["checks"] = checks
+        status_code = 200 if status_dict["status"] == "ok" else 503
+        return Response(status_dict, status=status_code)
 
 
 class RegisterView(APIView):
@@ -205,7 +206,29 @@ class IngestionJobViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return IngestionJob.objects.filter(source_document__organization=user.organization)
+        queryset = IngestionJob.objects.filter(source_document__organization=user.organization)
+        
+        # 상태 필터링 지원
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        return queryset.select_related("source_document")
+
+    @action(detail=True, methods=["post"])
+    def retry(self, request, pk=None):
+        """실패한 작업 재시도"""
+        job = self.get_object()
+        if job.status != "failed":
+            return Response(
+                {"detail": "실패한 작업만 재시도할 수 있습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        from .tasks import retry_ingestion_job
+        retry_ingestion_job.delay(str(job.id))
+        
+        return Response({"detail": "재시도 작업이 등록되었습니다."})
 
 
 class ProblemViewSet(viewsets.ModelViewSet):

@@ -60,6 +60,29 @@ services:
     ports:
       - "6379:6379"
 
+  worker:
+    build:
+      context: ./backend
+    command: celery -A hancom_backend worker --loglevel=info
+    volumes:
+      - ./backend:/app
+      - ./extract_problems.py:/app/extract_problems.py
+    environment:
+      DJANGO_DEBUG: "true"
+      DJANGO_ALLOWED_HOSTS: "*"
+      DJANGO_SECRET_KEY: "dev-secret-key"
+      DB_HOST: db
+      DB_NAME: hancom
+      DB_USER: hancom
+      DB_PASSWORD: hancom
+      DB_PORT: "5432"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
+    depends_on:
+      - db
+      - redis
+
 volumes:
   hancom_db:
   frontend_node_modules:
