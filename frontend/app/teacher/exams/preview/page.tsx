@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import { examsApi } from "@/lib/api/exams";
+import { problemsApi } from "@/lib/api/problems";
 import type { ExamPaper } from "@/lib/api/exams";
+import type { Problem } from "@/lib/api/problems";
 
 export default function ExamPreviewPage() {
   const router = useRouter();
@@ -12,6 +14,10 @@ export default function ExamPreviewPage() {
   const examId = searchParams.get("id");
   const [examPaper, setExamPaper] = useState<ExamPaper | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAddProblem, setShowAddProblem] = useState(false);
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [searchResults, setSearchResults] = useState<Problem[]>([]);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     if (examId) {
@@ -43,6 +49,48 @@ export default function ExamPreviewPage() {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       alert(err instanceof Error ? err.message : "PDF 다운로드 실패");
+    }
+  };
+
+  const handleSearchProblems = async () => {
+    if (!searchKeyword.trim() || !examPaper) return;
+    
+    setSearching(true);
+    try {
+      const response = await problemsApi.search({ keyword: searchKeyword, page: 1 });
+      setSearchResults(response.results.slice(0, 5)); // 최대 5개만 표시
+    } catch (err) {
+      console.error("문항 검색 실패:", err);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleAddProblem = async (problem: Problem) => {
+    if (!examPaper) return;
+    
+    try {
+      const orderNumber = (examPaper.items?.length || 0) + 1;
+      await examsApi.addItem(examPaper.id, problem.id, orderNumber);
+      await loadExamPaper();
+      setShowAddProblem(false);
+      setSearchKeyword("");
+      setSearchResults([]);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "문항 추가 실패");
+    }
+  };
+
+  const handleRemoveItem = async (itemId: string) => {
+    if (!examPaper) return;
+    
+    if (!confirm("이 문항을 제거하시겠습니까?")) return;
+    
+    try {
+      await examsApi.removeItem(examPaper.id, itemId);
+      await loadExamPaper();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "문항 제거 실패");
     }
   };
 
@@ -84,6 +132,84 @@ export default function ExamPreviewPage() {
             총 {total}문제 · 예상 {examPaper.estimated_time || "-"}분
           </h2>
         </div>
+        {/* 문항 목록 */}
+        <div className="rounded-3xl border border-ink/10 bg-white/70 p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold">문항 목록</h3>
+            <button
+              onClick={() => setShowAddProblem(!showAddProblem)}
+              className="rounded-full border border-ink/20 px-3 py-1 text-xs hover:bg-ink/5"
+            >
+              {showAddProblem ? "닫기" : "문항 추가"}
+            </button>
+          </div>
+          
+          {showAddProblem && (
+            <div className="mb-4 rounded-2xl border border-ink/10 bg-white/80 p-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="flex-1 rounded-2xl border border-ink/10 bg-white/80 px-3 py-2 text-sm"
+                  placeholder="문항 검색..."
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearchProblems()}
+                />
+                <button
+                  onClick={handleSearchProblems}
+                  disabled={searching || !searchKeyword.trim()}
+                  className="rounded-full bg-ink px-4 py-2 text-sm text-white disabled:opacity-50"
+                >
+                  {searching ? "검색 중..." : "검색"}
+                </button>
+              </div>
+              {searchResults.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {searchResults.map((problem) => (
+                    <div
+                      key={problem.id}
+                      className="flex items-center justify-between rounded-xl bg-white/80 px-3 py-2 text-sm"
+                    >
+                      <span>난이도 {problem.difficulty || "-"}</span>
+                      <button
+                        onClick={() => handleAddProblem(problem)}
+                        className="rounded-full border border-ink/20 px-2 py-1 text-xs hover:bg-ink/5"
+                      >
+                        추가
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            {examPaper.items && examPaper.items.length > 0 ? (
+              examPaper.items
+                .sort((a, b) => a.order_number - b.order_number)
+                .map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between rounded-xl bg-white/80 px-3 py-2 text-sm"
+                  >
+                    <span>
+                      {item.order_number}. 난이도 {item.problem.difficulty || "-"}
+                    </span>
+                    <button
+                      onClick={() => handleRemoveItem(item.id)}
+                      className="rounded-full border border-ink/20 px-2 py-1 text-xs hover:bg-coral/10"
+                    >
+                      제거
+                    </button>
+                  </div>
+                ))
+            ) : (
+              <p className="text-sm text-slate">문항이 없습니다.</p>
+            )}
+          </div>
+        </div>
+
         <div className="h-96 rounded-3xl border border-ink/10 bg-white/70 flex items-center justify-center text-sm text-slate">
           {examPaper.pdf_file ? (
             <iframe
