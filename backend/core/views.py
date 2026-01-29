@@ -511,9 +511,19 @@ class ExamPaperViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
+        template_id = serializer.validated_data.pop("template_id", None)
         serializer.save(
-            organization=self.request.user.organization, created_by=self.request.user
+            organization=self.request.user.organization,
+            created_by=self.request.user,
+            template_id=template_id if template_id else None,
         )
+    
+    def perform_update(self, serializer):
+        template_id = serializer.validated_data.pop("template_id", None)
+        if template_id is not None:
+            serializer.save(template_id=template_id)
+        else:
+            serializer.save()
 
     def get_permissions(self):
         if self.action in {"create", "update", "partial_update", "destroy"}:
