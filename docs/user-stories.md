@@ -1,6 +1,6 @@
 # 유저스토리 문서
 
-**버전**: 1.1  
+**버전**: 1.2  
 **작성일**: 2026-01-27  
 **최종 업데이트**: 2026-01-29  
 **관련 문서**: [PRD](prd.md), [요구사항](requirements.md)
@@ -282,8 +282,8 @@
 **우선순위**: P2 (로드맵)
 
 **수용 기준**:
-- [ ] 반/학생군 생성 및 관리
-- [ ] 학생 추가/제거
+- [x] 반/학생군 생성 및 관리
+- [x] 학생 추가/제거
 - [ ] 시험지 배포 시 반/학생군 선택
 - [ ] 배포된 시험지 목록 확인
 
@@ -378,9 +378,9 @@
 **우선순위**: P2
 
 **수용 기준**:
-- [ ] 약점 단원 목록 표시 (과목별)
-- [ ] 약점 단원별 정확도 표시
-- [ ] 약점 단원별 추천 문제 링크
+- [x] 약점 단원 목록 표시 (과목별)
+- [x] 약점 단원별 정확도 표시
+- [x] 약점 단원별 추천 문제 링크
 - [ ] 약점 단원 추이 그래프
 
 ---
@@ -485,8 +485,9 @@
   - `problems` (검색 필터/정렬, 복구 기능 포함) ✅
   - `review-tasks` (승인/반려, 통계 API 포함) ✅
   - `exam-papers` (추천, 미리보기, PDF 생성/다운로드, 문항 추가/제거 포함) ✅
-  - `classes` (반/학생군 관리) ✅
-  - `exam-attempts` (시험지 풀이, 제출, 결과 조회, 오답 노트 포함) ✅
+  - `exam-templates` (템플릿 CRUD) ✅
+  - `classes` (반/학생군 관리, 학생 추가/제거) ✅
+  - `exam-attempts` (시험지 풀이, 제출, 결과 조회, 오답 노트, 약점 단원 분석 포함) ✅
 - **주요 구현 사항**:
   - 마이그레이션 파일 생성 완료 (`0001_initial.py`, `0002_passwordresettoken.py`, `0003_student_models.py`)
   - 검색 필터/정렬 로직 구현 완료
@@ -513,14 +514,14 @@
 | US-023 | 로그인                    | `/login`                                | `POST /api/v1/auth/token/` (또는 alias: `/api/v1/auth/login`), `GET /api/v1/auth/me/`                                                       | 부분(목업/스캐폴딩) | 프론트 로그인은 제출/연동 없음                            |
 | US-006 | 검수 완료율 대시보드      | `/operator` (대시보드)                  | `GET /api/v1/review-tasks/stats`                                                                                                            | 미착수              | 통계 집계 API 필요                                        |
 | US-007 | 문항 삭제/비공개          | `/operator/problems`                    | `DELETE /api/v1/problems/{id}/`, `POST /api/v1/problems/{id}/restore`                                                                       | 부분(목업/스캐폴딩) | 소프트 삭제는 모델에 있으나 복구 API 미구현               |
-| US-015 | 시험지 템플릿 관리        | `/teacher/exams/new`                    | `GET /api/v1/exam-templates/`, `POST /api/v1/exam-templates/`                                                                               | 미착수              | 템플릿 모델/API 필요                                      |
-| US-016 | 반/학생군 설정            | (미구현)                                | `GET /api/v1/classes/`, `POST /api/v1/classes/`                                                                                             | 미착수              | Class/StudentGroup 모델 필요                              |
+| US-015 | 시험지 템플릿 관리        | `/teacher/exams/new`                    | `GET /api/v1/exam-templates/`, `POST /api/v1/exam-templates/`                                                                               | 완료                | 템플릿 모델/API 구현 완료, 시험지 제작 시 템플릿 선택 가능 |
+| US-016 | 반/학생군 설정            | `/teacher/classes`                      | `GET /api/v1/classes/`, `POST /api/v1/classes/`, `POST /api/v1/classes/{id}/add_member/`, `POST /api/v1/classes/{id}/remove_member/`         | 완료                | Class/ClassMember 모델 및 관리 페이지 구현 완료           |
 | US-017 | 시험지 확인               | `/student`                              | `GET /api/v1/exam-papers/?is_published=true&assigned_to_me=true`                                                                            | 부분(목업/스캐폴딩) | 학생용 시험지 목록 필터 필요                              |
 | US-018 | 문제 풀이                 | `/student/exams`                        | `POST /api/v1/exam-attempts/`, `PATCH /api/v1/exam-attempts/{id}/answers/{problem_id}`                                                      | 미착수              | ExamAttempt/Answer 모델 필요                              |
 | US-019 | 시험지 제출               | `/student/exams`                        | `POST /api/v1/exam-attempts/{id}/submit`                                                                                                    | 미착수              | 제출 상태 변경 API 필요                                   |
 | US-020 | 결과 확인                 | `/student/exams/{id}/result`            | `GET /api/v1/exam-attempts/{id}/result`                                                                                                     | 미착수              | 채점 로직/결과 집계 API 필요                              |
-| US-021 | 오답 노트 확인            | (미구현)                                | `GET /api/v1/exam-attempts/incorrect-answers`                                                                                               | 미착수              | 오답 필터링/집계 API 필요                                 |
-| US-022 | 약점 단원 확인            | (미구현)                                | `GET /api/v1/students/me/weak-chapters`                                                                                                     | 미착수              | 통계 집계 API 필요                                        |
+| US-021 | 오답 노트 확인            | `/student/incorrect-answers`            | `GET /api/v1/exam-attempts/incorrect-answers/`                                                                                              | 완료                | 오답 노트 목록 및 필터링 기능 구현 완료                    |
+| US-022 | 약점 단원 확인            | `/student/weak-chapters`                | `GET /api/v1/exam-attempts/weak-chapters/`                                                                                                 | 완료                | 약점 단원 분석 및 통계 기능 구현 완료                      |
 | US-024 | 비밀번호 재설정           | `/login` (링크)                         | `POST /api/v1/auth/forgot-password`, `POST /api/v1/auth/reset-password`                                                                     | 미착수              | 재설정 토큰/이메일 발송 로직 필요                         |
 | US-025 | 프로필 관리               | (미구현: 설정 페이지)                   | `GET /api/v1/auth/me/`, `PATCH /api/v1/auth/me/` (또는 alias: `/api/v1/users/me`)                                                           | 부분(목업/스캐폴딩) | 조회는 가능하나 수정 API/프론트 UI 미구현                 |
 
