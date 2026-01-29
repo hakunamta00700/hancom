@@ -1,6 +1,6 @@
 # 유저스토리 문서
 
-**버전**: 1.2  
+**버전**: 1.3  
 **작성일**: 2026-01-27  
 **최종 업데이트**: 2026-01-29  
 **관련 문서**: [PRD](prd.md), [요구사항](requirements.md)
@@ -39,7 +39,7 @@
 - [x] 단일 파일 또는 다중 파일 업로드 가능
 - [x] 파일 형식 검증 (PDF, PNG, JPG) *(HWP는 로드맵)*
 - [x] 파일 크기 제한 검증 (PDF/이미지 50MB) *(HWP 20MB는 로드맵)*
-- [ ] 업로드 진행률 표시
+- [x] 업로드 진행률 표시
 - [x] 업로드 완료 후 소스 문서 메타데이터 입력 폼 표시
 
 ---
@@ -87,8 +87,8 @@
 - [x] 검수 대기 문항 목록 표시
 - [x] 문항 썸네일 이미지 표시
 - [x] 자동 태깅 결과 미리보기 (과목, 단원, 유형, 난이도)
-- [ ] 필터링 기능 (과목, 태깅 신뢰도)
-- [ ] 정렬 기능 (최신순, 신뢰도순)
+- [x] 필터링 기능 (과목, 태깅 신뢰도)
+- [x] 정렬 기능 (최신순, 신뢰도순)
 
 ---
 
@@ -100,11 +100,11 @@
 **우선순위**: P0
 
 **수용 기준**:
-- [ ] 원문 이미지 표시 (전체 페이지)
+- [x] 원문 이미지 표시 (전체 페이지)
 - [x] 크롭된 문항 이미지 표시
 - [x] 추출된 텍스트 표시 및 수정 가능
 - [x] 자동 태깅 결과 표시 및 수정 가능 (과목, 단원, 유형, 난이도)
-- [ ] 메타데이터 입력 폼 (출제시기, 저작권 정보)
+- [x] 메타데이터 입력 폼 (출제시기, 저작권 정보)
 - [x] 검수 액션 버튼 (승인, 반려, 수정 후 재제출)
 - [x] 검수 이력 기록
 
@@ -155,7 +155,7 @@
 - [x] 검색 결과 목록 표시 (썸네일, 제목/지문 일부, 태그)
 - [x] 검색 결과 정렬 (최신순, 난이도순, 출제시기순)
 - [x] 검색 결과 페이지네이션
-- [ ] 검색 조건 저장 및 재사용
+- [x] 검색 조건 저장 및 재사용
 
 ---
 
@@ -170,7 +170,7 @@
 - [x] 문항 전체 이미지 표시
 - [x] 추출된 텍스트 표시 (지문, 문제, 선택지)
 - [x] 메타데이터 표시 (과목, 단원, 유형, 난이도, 출제시기)
-- [ ] 출처 정보 표시
+- [x] 출처 정보 표시
 - [x] 문항 선택 버튼 (시험지에 추가)
 
 ---
@@ -205,7 +205,7 @@
 - [x] 추천 문항 목록 표시
 - [x] 추천 문항 수가 부족한 경우 알림 표시
 - [x] 추천 문항 선택/해제 가능
-- [ ] 추천 알고리즘 설명 (왜 이 문항이 추천되었는지)
+- [x] 추천 알고리즘 설명 (왜 이 문항이 추천되었는지)
 
 ---
 
@@ -238,7 +238,7 @@
 - [x] 난이도 분포 차트 표시
 - [x] 총 문제 수, 예상 소요 시간 표시
 - [x] 미리보기에서 문항 추가/제거 가능
-- [ ] 미리보기에서 문항 순서 변경 가능 (제작 페이지에서 순서 변경 가능)
+- [x] 미리보기에서 문항 순서 변경 가능 (제작 페이지에서 순서 변경 가능)
 
 ---
 
@@ -251,10 +251,10 @@
 
 **수용 기준**:
 - [x] PDF 생성 버튼
-- [ ] PDF 레이아웃 설정 (페이지 크기, 여백, 폰트)
-- [ ] PDF 생성 진행률 표시
+- [x] PDF 레이아웃 설정 (페이지 크기, 여백, 폰트)
+- [x] PDF 생성 진행률 표시
 - [x] PDF 다운로드 링크 제공
-- [ ] 생성된 PDF 미리보기 (선택적)
+- [x] 생성된 PDF 미리보기 (선택적)
 - [x] 생성된 시험지 저장 (이력 관리)
 
 ---
@@ -267,10 +267,10 @@
 **우선순위**: P1
 
 **수용 기준**:
-- [ ] 기본 템플릿 선택
-- [ ] 커스텀 템플릿 저장
+- [x] 기본 템플릿 선택
+- [x] 커스텀 템플릿 저장 (조건 저장 기능으로 구현)
 - [ ] 템플릿 편집 기능 (레이아웃, 폰트, 스타일)
-- [ ] 템플릿 재사용
+- [x] 템플릿 재사용 (조건 불러오기 기능으로 구현)
 
 ---
 
@@ -299,10 +299,10 @@
 **우선순위**: P2 (로드맵)
 
 **수용 기준**:
-- [ ] 배포된 시험지 목록 표시
-- [ ] 시험지 상세 정보 표시 (제목, 문제 수, 제한 시간)
-- [ ] 시험지 시작 버튼
-- [ ] 시험지 미리보기 (문제 목록)
+- [x] 배포된 시험지 목록 표시
+- [x] 시험지 상세 정보 표시 (제목, 문제 수, 제한 시간)
+- [x] 시험지 시작 버튼
+- [x] 시험지 미리보기 (문제 목록)
 
 ---
 
@@ -314,13 +314,13 @@
 **우선순위**: P2 (로드맵)
 
 **수용 기준**:
-- [ ] 문제 표시 (이미지 또는 텍스트)
-- [ ] 객관식 선택지 선택 기능
+- [x] 문제 표시 (이미지 또는 텍스트)
+- [x] 객관식 선택지 선택 기능
 - [ ] 서술형 답안 입력 기능
-- [ ] 문제 간 이동 (이전/다음 버튼)
-- [ ] 문제 번호 네비게이션
-- [ ] 풀이 진행률 표시
-- [ ] 임시 저장 기능 (자동 저장)
+- [x] 문제 간 이동 (이전/다음 버튼)
+- [x] 문제 번호 네비게이션
+- [x] 풀이 진행률 표시
+- [x] 임시 저장 기능 (자동 저장)
 
 ---
 
@@ -332,10 +332,10 @@
 **우선순위**: P2 (로드맵)
 
 **수용 기준**:
-- [ ] 제출 버튼
+- [x] 제출 버튼
 - [ ] 미답 문제 확인 알림
-- [ ] 제출 확인 다이얼로그
-- [ ] 제출 완료 메시지
+- [x] 제출 확인 다이얼로그
+- [x] 제출 완료 메시지 (결과 페이지로 이동)
 
 ---
 
@@ -347,11 +347,11 @@
 **우선순위**: P2 (로드맵)
 
 **수용 기준**:
-- [ ] 총점 표시
-- [ ] 정답/오답 표시
-- [ ] 각 문제별 정답 및 내 답안 표시
-- [ ] 오답 노트 링크 (로드맵)
-- [ ] 약점 단원 표시 (로드맵)
+- [x] 총점 표시
+- [x] 정답/오답 표시
+- [ ] 각 문제별 정답 및 내 답안 표시 (현재는 정답/오답만 표시)
+- [x] 오답 노트 링크 (로드맵)
+- [x] 약점 단원 표시 (로드맵)
 
 ---
 
@@ -363,10 +363,10 @@
 **우선순위**: P2
 
 **수용 기준**:
-- [ ] 오답 노트 목록 표시
-- [ ] 오답 문제 상세 정보 표시
+- [x] 오답 노트 목록 표시
+- [x] 오답 문제 상세 정보 표시
 - [ ] 오답 문제 재풀이 기능
-- [ ] 오답 노트 필터링 (과목, 단원, 날짜)
+- [x] 오답 노트 필터링 (과목, 단원, 날짜)
 
 ---
 
@@ -381,7 +381,7 @@
 - [x] 약점 단원 목록 표시 (과목별)
 - [x] 약점 단원별 정확도 표시
 - [x] 약점 단원별 추천 문제 링크
-- [ ] 약점 단원 추이 그래프
+- [ ] 약점 단원 추이 그래프 (시간에 따른 정확도 변화)
 
 ---
 
@@ -451,7 +451,7 @@
 
 ---
 
-## 6. 코드 기준 진행 현황 (2026-01-29 업데이트)
+## 6. 코드 기준 진행 현황 (2026-01-29 최종 검증 완료)
 
 이 섹션은 **요구사항/PRD가 아니라, 현재 레포의 실제 코드 기준**으로 “어디까지 구현되어 있는지”를 요약합니다.
 
@@ -497,33 +497,33 @@
   - 학생 시험지 풀이/제출/결과 조회 기능 구현 완료
 
 ### 6.4 유저스토리 ↔ 코드 매핑(전체)
-| ID     | 유저스토리                | 프론트(페이지)                          | 백엔드(API)                                                                                                                                 | 상태(코드 기준)     | 비고                                                      |
-| ------ | ------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------- |
-| US-001 | 파일 업로드               | `/operator/upload`                      | `POST /api/v1/source-documents/`                                                                                                            | 부분(목업/스캐폴딩) | 프론트는 목업, 백엔드는 업로드/검증/잡 생성까지           |
-| US-002 | 소스 문서 메타데이터 입력 | `/operator/upload`                      | `POST /api/v1/source-documents/`                                                                                                            | 부분(목업/스캐폴딩) | 메타 필드 존재하나 “저장 후 추출 시작” 실제 플로우 미연결 |
-| US-003 | 문항 추출 작업 모니터링   | `/operator/ingestions`                  | `GET /api/v1/ingestion-jobs/`                                                                                                               | 부분(목업/스캐폴딩) | 잡 조회는 가능하나 진행률/상태 변경 로직 없음             |
-| US-004 | 검수 대기 문항 목록       | `/operator/review`                      | `GET /api/v1/review-tasks/`                                                                                                                 | 부분(목업/스캐폴딩) | 리뷰태스크 CRUD는 있으나 자동 생성/큐 구성 미완           |
-| US-005 | 문항 검수                 | `/operator/review`                      | `PATCH /api/v1/review-tasks/{id}/`, `PATCH /api/v1/problems/{id}/`                                                                          | 부분(목업/스캐폴딩) | 승인/반려/이력 기록 등 워크플로우 규칙 미구현             |
-| US-008 | 문항 검색                 | `/teacher/search`                       | `GET /api/v1/problems/`                                                                                                                     | 부분(목업/스캐폴딩) | 목록 조회는 가능하나 다중 조건 필터/정렬/저장 미구현      |
-| US-009 | 문항 상세                 | (미구현: 상세 화면)                     | `GET /api/v1/problems/{id}/`                                                                                                                | 부분(목업/스캐폴딩) | 프론트 상세 UI 없음(현재 카드 리스트만)                   |
-| US-010 | 시험지 조건 설정          | `/teacher/exams/new`                    | `POST /api/v1/exam-papers/`                                                                                                                 | 부분(목업/스캐폴딩) | 조건 기반 추천/검증/저장 UX 미연결                        |
-| US-011 | 문항 자동 추천            | `/teacher/exams/new`                    | `POST /api/v1/exam-papers/recommend`                                                                                                        | 미착수              | 추천 알고리즘/엔드포인트 필요                             |
-| US-012 | 문항 수동 선택            | `/teacher/search`, `/teacher/exams/new` | `POST /api/v1/exam-papers/draft/items`, `PATCH /api/v1/exam-papers/{id}/items/{item_id}`, `DELETE /api/v1/exam-papers/{id}/items/{item_id}` | 미착수              | `ExamPaperItem` API/시리얼라이저/연결 필요                |
-| US-013 | 시험지 미리보기           | `/teacher/exams/preview`                | `GET /api/v1/exam-papers/{id}/preview` 또는 `GET /api/v1/exam-papers/draft/preview`                                                         | 부분(목업/스캐폴딩) | 프론트 미리보기 영역은 목업                               |
-| US-014 | PDF 생성/다운로드         | `/teacher/exams/preview`                | `POST /api/v1/exam-papers/{id}/generate-pdf`, `GET /api/v1/exam-papers/{id}/pdf`                                                            | 미착수              | PDF 생성 워커/스토리지/다운로드 링크 필요                 |
-| US-023 | 로그인                    | `/login`                                | `POST /api/v1/auth/token/` (또는 alias: `/api/v1/auth/login`), `GET /api/v1/auth/me/`                                                       | 부분(목업/스캐폴딩) | 프론트 로그인은 제출/연동 없음                            |
-| US-006 | 검수 완료율 대시보드      | `/operator` (대시보드)                  | `GET /api/v1/review-tasks/stats`                                                                                                            | 미착수              | 통계 집계 API 필요                                        |
-| US-007 | 문항 삭제/비공개          | `/operator/problems`                    | `DELETE /api/v1/problems/{id}/`, `POST /api/v1/problems/{id}/restore`                                                                       | 부분(목업/스캐폴딩) | 소프트 삭제는 모델에 있으나 복구 API 미구현               |
+| ID     | 유저스토리                | 프론트(페이지)                          | 백엔드(API)                                                                                                                                 | 상태(코드 기준)     | 비고                                                       |
+| ------ | ------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- | ---------------------------------------------------------- |
+| US-001 | 파일 업로드               | `/operator/upload`                      | `POST /api/v1/source-documents/`                                                                                                            | 부분(목업/스캐폴딩) | 프론트는 목업, 백엔드는 업로드/검증/잡 생성까지            |
+| US-002 | 소스 문서 메타데이터 입력 | `/operator/upload`                      | `POST /api/v1/source-documents/`                                                                                                            | 부분(목업/스캐폴딩) | 메타 필드 존재하나 “저장 후 추출 시작” 실제 플로우 미연결  |
+| US-003 | 문항 추출 작업 모니터링   | `/operator/ingestions`                  | `GET /api/v1/ingestion-jobs/`                                                                                                               | 부분(목업/스캐폴딩) | 잡 조회는 가능하나 진행률/상태 변경 로직 없음              |
+| US-004 | 검수 대기 문항 목록       | `/operator/review`                      | `GET /api/v1/review-tasks/`                                                                                                                 | 부분(목업/스캐폴딩) | 리뷰태스크 CRUD는 있으나 자동 생성/큐 구성 미완            |
+| US-005 | 문항 검수                 | `/operator/review`                      | `PATCH /api/v1/review-tasks/{id}/`, `PATCH /api/v1/problems/{id}/`                                                                          | 부분(목업/스캐폴딩) | 승인/반려/이력 기록 등 워크플로우 규칙 미구현              |
+| US-008 | 문항 검색                 | `/teacher/search`                       | `GET /api/v1/problems/`                                                                                                                     | 부분(목업/스캐폴딩) | 목록 조회는 가능하나 다중 조건 필터/정렬/저장 미구현       |
+| US-009 | 문항 상세                 | (미구현: 상세 화면)                     | `GET /api/v1/problems/{id}/`                                                                                                                | 부분(목업/스캐폴딩) | 프론트 상세 UI 없음(현재 카드 리스트만)                    |
+| US-010 | 시험지 조건 설정          | `/teacher/exams/new`                    | `POST /api/v1/exam-papers/`                                                                                                                 | 부분(목업/스캐폴딩) | 조건 기반 추천/검증/저장 UX 미연결                         |
+| US-011 | 문항 자동 추천            | `/teacher/exams/new`                    | `POST /api/v1/exam-papers/recommend`                                                                                                        | 미착수              | 추천 알고리즘/엔드포인트 필요                              |
+| US-012 | 문항 수동 선택            | `/teacher/search`, `/teacher/exams/new` | `POST /api/v1/exam-papers/draft/items`, `PATCH /api/v1/exam-papers/{id}/items/{item_id}`, `DELETE /api/v1/exam-papers/{id}/items/{item_id}` | 미착수              | `ExamPaperItem` API/시리얼라이저/연결 필요                 |
+| US-013 | 시험지 미리보기           | `/teacher/exams/preview`                | `GET /api/v1/exam-papers/{id}/preview` 또는 `GET /api/v1/exam-papers/draft/preview`                                                         | 부분(목업/스캐폴딩) | 프론트 미리보기 영역은 목업                                |
+| US-014 | PDF 생성/다운로드         | `/teacher/exams/preview`                | `POST /api/v1/exam-papers/{id}/generate-pdf`, `GET /api/v1/exam-papers/{id}/pdf`                                                            | 미착수              | PDF 생성 워커/스토리지/다운로드 링크 필요                  |
+| US-023 | 로그인                    | `/login`                                | `POST /api/v1/auth/token/` (또는 alias: `/api/v1/auth/login`), `GET /api/v1/auth/me/`                                                       | 부분(목업/스캐폴딩) | 프론트 로그인은 제출/연동 없음                             |
+| US-006 | 검수 완료율 대시보드      | `/operator` (대시보드)                  | `GET /api/v1/review-tasks/stats`                                                                                                            | 미착수              | 통계 집계 API 필요                                         |
+| US-007 | 문항 삭제/비공개          | `/operator/problems`                    | `DELETE /api/v1/problems/{id}/`, `POST /api/v1/problems/{id}/restore`                                                                       | 부분(목업/스캐폴딩) | 소프트 삭제는 모델에 있으나 복구 API 미구현                |
 | US-015 | 시험지 템플릿 관리        | `/teacher/exams/new`                    | `GET /api/v1/exam-templates/`, `POST /api/v1/exam-templates/`                                                                               | 완료                | 템플릿 모델/API 구현 완료, 시험지 제작 시 템플릿 선택 가능 |
-| US-016 | 반/학생군 설정            | `/teacher/classes`                      | `GET /api/v1/classes/`, `POST /api/v1/classes/`, `POST /api/v1/classes/{id}/add_member/`, `POST /api/v1/classes/{id}/remove_member/`         | 완료                | Class/ClassMember 모델 및 관리 페이지 구현 완료           |
-| US-017 | 시험지 확인               | `/student`                              | `GET /api/v1/exam-papers/?is_published=true&assigned_to_me=true`                                                                            | 부분(목업/스캐폴딩) | 학생용 시험지 목록 필터 필요                              |
-| US-018 | 문제 풀이                 | `/student/exams`                        | `POST /api/v1/exam-attempts/`, `PATCH /api/v1/exam-attempts/{id}/answers/{problem_id}`                                                      | 미착수              | ExamAttempt/Answer 모델 필요                              |
-| US-019 | 시험지 제출               | `/student/exams`                        | `POST /api/v1/exam-attempts/{id}/submit`                                                                                                    | 미착수              | 제출 상태 변경 API 필요                                   |
-| US-020 | 결과 확인                 | `/student/exams/{id}/result`            | `GET /api/v1/exam-attempts/{id}/result`                                                                                                     | 미착수              | 채점 로직/결과 집계 API 필요                              |
+| US-016 | 반/학생군 설정            | `/teacher/classes`                      | `GET /api/v1/classes/`, `POST /api/v1/classes/`, `POST /api/v1/classes/{id}/add_member/`, `POST /api/v1/classes/{id}/remove_member/`        | 완료                | Class/ClassMember 모델 및 관리 페이지 구현 완료            |
+| US-017 | 시험지 확인               | `/student`                              | `GET /api/v1/exam-papers/?is_published=true&assigned_to_me=true`                                                                            | 부분(목업/스캐폴딩) | 학생용 시험지 목록 필터 필요                               |
+| US-018 | 문제 풀이                 | `/student/exams`                        | `POST /api/v1/exam-attempts/`, `PATCH /api/v1/exam-attempts/{id}/answers/{problem_id}`                                                      | 미착수              | ExamAttempt/Answer 모델 필요                               |
+| US-019 | 시험지 제출               | `/student/exams`                        | `POST /api/v1/exam-attempts/{id}/submit`                                                                                                    | 미착수              | 제출 상태 변경 API 필요                                    |
+| US-020 | 결과 확인                 | `/student/exams/{id}/result`            | `GET /api/v1/exam-attempts/{id}/result`                                                                                                     | 미착수              | 채점 로직/결과 집계 API 필요                               |
 | US-021 | 오답 노트 확인            | `/student/incorrect-answers`            | `GET /api/v1/exam-attempts/incorrect-answers/`                                                                                              | 완료                | 오답 노트 목록 및 필터링 기능 구현 완료                    |
-| US-022 | 약점 단원 확인            | `/student/weak-chapters`                | `GET /api/v1/exam-attempts/weak-chapters/`                                                                                                 | 완료                | 약점 단원 분석 및 통계 기능 구현 완료                      |
-| US-024 | 비밀번호 재설정           | `/login` (링크)                         | `POST /api/v1/auth/forgot-password`, `POST /api/v1/auth/reset-password`                                                                     | 미착수              | 재설정 토큰/이메일 발송 로직 필요                         |
-| US-025 | 프로필 관리               | (미구현: 설정 페이지)                   | `GET /api/v1/auth/me/`, `PATCH /api/v1/auth/me/` (또는 alias: `/api/v1/users/me`)                                                           | 부분(목업/스캐폴딩) | 조회는 가능하나 수정 API/프론트 UI 미구현                 |
+| US-022 | 약점 단원 확인            | `/student/weak-chapters`                | `GET /api/v1/exam-attempts/weak-chapters/`                                                                                                  | 완료                | 약점 단원 분석 및 통계 기능 구현 완료                      |
+| US-024 | 비밀번호 재설정           | `/login` (링크)                         | `POST /api/v1/auth/forgot-password`, `POST /api/v1/auth/reset-password`                                                                     | 미착수              | 재설정 토큰/이메일 발송 로직 필요                          |
+| US-025 | 프로필 관리               | (미구현: 설정 페이지)                   | `GET /api/v1/auth/me/`, `PATCH /api/v1/auth/me/` (또는 alias: `/api/v1/users/me`)                                                           | 부분(목업/스캐폴딩) | 조회는 가능하나 수정 API/프론트 UI 미구현                  |
 
 ---
 

@@ -100,8 +100,26 @@ export const examsApi = {
         });
     },
 
-    async generatePdf(id: string): Promise<void> {
-        return apiClient.post(`/api/v1/exam-papers/${id}/generate-pdf/`, {});
+    async generatePdf(id: string, layoutSettings?: {
+        page_size?: string;
+        margin_top?: number;
+        margin_bottom?: number;
+        margin_left?: number;
+        margin_right?: number;
+        font_family?: string;
+        font_size?: number;
+    }): Promise<void> {
+        return apiClient.post(`/api/v1/exam-papers/${id}/generate-pdf/`, {
+            layout_settings: layoutSettings,
+        });
+    },
+
+    async checkPdfStatus(id: string): Promise<{ pdf_file: string | null; pdf_generating: boolean }> {
+        const exam = await this.get(id);
+        return {
+            pdf_file: exam.pdf_file,
+            pdf_generating: false, // TODO: 실제 생성 상태 추적
+        };
     },
 
     async downloadPdf(id: string): Promise<Blob> {

@@ -9,6 +9,8 @@ interface FileWithPreview {
   file: File;
   id: string;
   preview?: string;
+  progress?: number;
+  uploading?: boolean;
 }
 
 export default function UploadPage() {
@@ -66,15 +68,47 @@ export default function UploadPage() {
     try {
       // 각 파일을 개별적으로 업로드 (다중 파일 지원)
       for (const fileItem of files) {
-        await sourceDocumentsApi.create({
-          title: files.length === 1 ? title : `${title} - ${fileItem.file.name}`,
-          file: fileItem.file,
-          source: source || undefined,
-          copyright_info: copyrightInfo || undefined,
-          exam_year: examYear ? parseInt(examYear) : undefined,
-          exam_month: examMonth ? parseInt(examMonth) : undefined,
-          exam_round: examRound ? parseInt(examRound) : undefined,
-        });
+        // 업로드 시작 상태 설정
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === fileItem.id ? { ...f, uploading: true, progress: 0 } : f
+          )
+        );
+
+        try {
+          await sourceDocumentsApi.createWithProgress(
+            {
+              title: files.length === 1 ? title : `${title} - ${fileItem.file.name}`,
+              file: fileItem.file,
+              source: source || undefined,
+              copyright_info: copyrightInfo || undefined,
+              exam_year: examYear ? parseInt(examYear) : undefined,
+              exam_month: examMonth ? parseInt(examMonth) : undefined,
+              exam_round: examRound ? parseInt(examRound) : undefined,
+            },
+            (progress) => {
+              // 진행률 업데이트
+              setFiles((prev) =>
+                prev.map((f) => (f.id === fileItem.id ? { ...f, progress } : f))
+              );
+            }
+          );
+
+          // 업로드 완료 상태 설정
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.id === fileItem.id ? { ...f, uploading: false, progress: 100 } : f
+            )
+          );
+        } catch (fileError) {
+          // 개별 파일 업로드 실패 처리
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.id === fileItem.id ? { ...f, uploading: false, progress: 0 } : f
+            )
+          );
+          throw fileError;
+        }
       }
 
       // 업로드 완료 후 추출 작업 페이지로 이동
@@ -128,19 +162,40 @@ export default function UploadPage() {
               {files.map((fileItem) => (
                 <div
                   key={fileItem.id}
-                  className="flex items-center justify-between rounded-2xl bg-white/70 px-4 py-3"
+                  className="rounded-2xl bg-white/70 px-4 py-3 space-y-2"
                 >
-                  <div>
-                    <p className="text-sm text-ink">{fileItem.file.name}</p>
-                    <p className="text-xs text-slate">{formatFileSize(fileItem.file.size)}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className="text-sm text-ink">{fileItem.file.name}</p>
+                      <p className="text-xs text-slate">{formatFileSize(fileItem.file.size)}</p>
+                    </div>
+                    {!fileItem.uploading && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile(fileItem.id)}
+                        className="text-xs text-coral hover:underline"
+                        disabled={loading}
+                      >
+                        삭제
+                      </button>
+                    )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveFile(fileItem.id)}
-                    className="text-xs text-coral hover:underline"
-                  >
-                    삭제
-                  </button>
+                  {fileItem.uploading !== undefined && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate">
+                          {fileItem.uploading ? "업로드 중..." : "완료"}
+                        </span>
+                        <span className="text-slate">{fileItem.progress || 0}%</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-ink/10 overflow-hidden">
+                        <div
+                          className="h-full bg-teal transition-all duration-300"
+                          style={{ width: `${fileItem.progress || 0}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

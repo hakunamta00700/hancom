@@ -96,6 +96,43 @@ export default function ProblemDetailPage() {
           </div>
         </div>
         
+        {/* 출처 정보 */}
+        {problem.source_document_info && (
+          <div className="rounded-3xl border border-ink/10 bg-white/70 p-4">
+            <p className="text-sm text-slate mb-3">출처 정보</p>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate">제목:</span>
+                <span>{problem.source_document_info.title}</span>
+              </div>
+              {problem.source_document_info.source && (
+                <div className="flex justify-between">
+                  <span className="text-slate">출처:</span>
+                  <span>{problem.source_document_info.source}</span>
+                </div>
+              )}
+              {(problem.source_document_info.exam_year || 
+                problem.source_document_info.exam_month || 
+                problem.source_document_info.exam_round) && (
+                <div className="flex justify-between">
+                  <span className="text-slate">출제시기:</span>
+                  <span>
+                    {problem.source_document_info.exam_year && `${problem.source_document_info.exam_year}년 `}
+                    {problem.source_document_info.exam_month && `${problem.source_document_info.exam_month}월 `}
+                    {problem.source_document_info.exam_round && `${problem.source_document_info.exam_round}회차`}
+                  </span>
+                </div>
+              )}
+              {problem.source_document_info.copyright_info && (
+                <div className="flex flex-col">
+                  <span className="text-slate mb-1">저작권 정보:</span>
+                  <span className="text-xs">{problem.source_document_info.copyright_info}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
         <div className="flex justify-end gap-3">
           <button
             onClick={() => window.history.back()}

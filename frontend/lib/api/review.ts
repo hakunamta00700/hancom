@@ -35,12 +35,37 @@ export interface Problem {
         category: string;
         confidence: number | null;
     }>;
+    source_document_info: {
+        id: string;
+        title: string;
+        source: string | null;
+        copyright_info: string | null;
+        exam_year: number | null;
+        exam_month: number | null;
+        exam_round: number | null;
+        file?: string | null;
+        file_type?: string;
+    } | null;
 }
 
 export const reviewApi = {
-    async list(status?: string): Promise<{ results: ReviewTask[] }> {
-        const params = status ? `?status=${status}` : "";
-        return apiClient.get(`/api/v1/review-tasks/${params}`);
+    async list(params?: {
+        status?: string;
+        subject_id?: string;
+        min_confidence?: number;
+        ordering?: "-created_at" | "created_at" | "confidence" | "-confidence";
+    }): Promise<{ results: ReviewTask[] }> {
+        const queryParams = new URLSearchParams();
+        if (params?.status) queryParams.append("status", params.status);
+        if (params?.subject_id) queryParams.append("subject_id", params.subject_id);
+        if (params?.min_confidence !== undefined) {
+            queryParams.append("min_confidence", params.min_confidence.toString());
+        }
+        if (params?.ordering) queryParams.append("ordering", params.ordering);
+
+        const queryString = queryParams.toString();
+        const url = `/api/v1/review-tasks/${queryString ? `?${queryString}` : ""}`;
+        return apiClient.get(url);
     },
 
     async get(id: string): Promise<ReviewTask> {

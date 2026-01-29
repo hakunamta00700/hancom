@@ -1,7 +1,11 @@
-feat: 학생 오답 노트 확인 기능 구현 (US-021)
+feat: 시험지 제작 조건 저장 및 재사용 기능 구현 (US-010)
 
-- 오답 노트 페이지 추가 (/student/incorrect-answers)
-- 필터링 기능 (과목, 날짜)
-- 오답 문제 상세 정보 표시
-- 네비게이션에 오답 노트 링크 추가
-- .cursor/rules.md 파일 생성 및 개발 가이드 작성
+백엔드:
+- ExamPaperCondition 모델 추가 (조건 저장용)
+- ExamPaperConditionViewSet 추가 (CRUD API)
+- 조건 저장/불러오기 API 구현
+
+프론트엔드:
+- 조건 저장/불러오기 API 클라이언트 추가
+- 시험지 제작 페이지에 조건 저장/불러오기 UI 추가
+- 저장된 조건 목록 표시 및 적용 기능

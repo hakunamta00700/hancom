@@ -478,18 +478,28 @@ export default function ExamBuilderPage() {
             {recommendedProblems.length > 0 && (
               <div className="mt-4 space-y-2">
                 <p className="text-sm text-slate">추천 문항:</p>
-                {recommendedProblems.map((problem) => (
+                {recommendedProblems.map((problem: any) => (
                   <div
                     key={problem.id}
-                    className="flex items-center justify-between rounded-2xl bg-white/70 px-4 py-3 text-sm"
+                    className="rounded-2xl bg-white/70 px-4 py-3 text-sm space-y-2"
                   >
-                    <span>난이도 {problem.difficulty || "-"}</span>
-                    <button
-                      onClick={() => handleAddProblem(problem)}
-                      className="rounded-full border border-ink/20 px-3 py-1 text-xs hover:bg-ink/5"
-                    >
-                      추가
-                    </button>
+                    <div className="flex items-center justify-between">
+                      <span>난이도 {problem.difficulty || "-"}</span>
+                      <button
+                        onClick={() => handleAddProblem(problem)}
+                        className="rounded-full border border-ink/20 px-3 py-1 text-xs hover:bg-ink/5"
+                      >
+                        추가
+                      </button>
+                    </div>
+                    {problem.recommendation_reason && (
+                      <div className="text-xs text-slate flex items-center gap-1">
+                        <span className="badge bg-teal/10 border-teal/30 text-teal">
+                          추천 이유
+                        </span>
+                        <span>{problem.recommendation_reason}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

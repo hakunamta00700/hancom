@@ -282,20 +282,46 @@ class ExamTemplate(TimeStampedModel):
 
 class ExamPaperCondition(TimeStampedModel):
     """시험지 제작 조건 저장 (재사용용)"""
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     organization = models.ForeignKey(
         Organization, on_delete=models.SET_NULL, null=True, blank=True
     )
-    name = models.CharField(max_length=200, help_text="조건 이름 (예: 중간고사_국어_1학년)")
+    name = models.CharField(
+        max_length=200, help_text="조건 이름 (예: 중간고사_국어_1학년)"
+    )
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True
     )
     # 조건 설정 (JSON)
     conditions = models.JSONField(
         default=dict,
-        help_text="조건 설정 (subject_id, chapter_ids, type_ids, difficulty_min, difficulty_max, total_count, difficulty_distribution)"
+        help_text="조건 설정 (subject_id, chapter_ids, type_ids, difficulty_min, difficulty_max, total_count, difficulty_distribution)",
     )
-    
+
+    class Meta:
+        unique_together = ("organization", "name")
+
+
+class ProblemSearchCondition(TimeStampedModel):
+    """문항 검색 조건 저장 (재사용용)"""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        Organization, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    name = models.CharField(
+        max_length=200, help_text="검색 조건 이름 (예: 중간고사_국어_객관식)"
+    )
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    # 검색 조건 설정 (JSON)
+    conditions = models.JSONField(
+        default=dict,
+        help_text="검색 조건 설정 (subject_id, problem_type, difficulty_min, difficulty_max, keyword, ordering)",
+    )
+
     class Meta:
         unique_together = ("organization", "name")
 

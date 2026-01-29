@@ -12,6 +12,7 @@ from .models import (
     ExamPaper,
     ExamPaperItem,
     ExamPaperCondition,
+    ProblemSearchCondition,
     ExamTemplate,
     Tag,
     Class,
@@ -197,6 +198,7 @@ class IngestionJobSerializer(serializers.ModelSerializer):
 class ProblemSerializer(serializers.ModelSerializer):
     review_task = serializers.SerializerMethodField()
     tags = serializers.SerializerMethodField()
+    source_document_info = serializers.SerializerMethodField()
 
     class Meta:
         model = Problem
@@ -204,6 +206,7 @@ class ProblemSerializer(serializers.ModelSerializer):
             "id",
             "organization",
             "source_document",
+            "source_document_info",
             "problem_number",
             "page_number",
             "image_file",
@@ -245,6 +248,23 @@ class ProblemSerializer(serializers.ModelSerializer):
             }
             for tag in tags
         ]
+
+    def get_source_document_info(self, obj):
+        if obj.source_document:
+            return {
+                "id": str(obj.source_document.id),
+                "title": obj.source_document.title,
+                "source": obj.source_document.source,
+                "copyright_info": obj.source_document.copyright_info,
+                "exam_year": obj.source_document.exam_year,
+                "exam_month": obj.source_document.exam_month,
+                "exam_round": obj.source_document.exam_round,
+                "file": (
+                    obj.source_document.file.url if obj.source_document.file else None
+                ),
+                "file_type": obj.source_document.file_type,
+            }
+        return None
 
 
 class ReviewTaskSerializer(serializers.ModelSerializer):
@@ -421,3 +441,33 @@ class ExamAttemptSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+
+class ExamPaperConditionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamPaperCondition
+        fields = [
+            "id",
+            "organization",
+            "name",
+            "created_by",
+            "conditions",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["organization", "created_by", "created_at", "updated_at"]
+
+
+class ProblemSearchConditionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProblemSearchCondition
+        fields = [
+            "id",
+            "organization",
+            "name",
+            "created_by",
+            "conditions",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["organization", "created_by", "created_at", "updated_at"]

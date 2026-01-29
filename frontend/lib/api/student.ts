@@ -57,23 +57,23 @@ export const studentApi = {
         return apiClient.get(`/api/v1/exam-attempts/${attemptId}/result/`);
     },
 
-  async getIncorrectAnswers(): Promise<{ results: any[] }> {
-    // DRF router에서 @action 메서드는 기본적으로 하이픈(-)을 사용하여 URL 생성
-    // 예: incorrect_answers -> incorrect-answers
-    return apiClient.get("/api/v1/exam-attempts/incorrect-answers/");
-  },
+    async getIncorrectAnswers(): Promise<{ results: any[] }> {
+        // DRF router에서 @action 메서드는 기본적으로 하이픈(-)을 사용하여 URL 생성
+        // 예: incorrect_answers -> incorrect-answers
+        return apiClient.get("/api/v1/exam-attempts/incorrect-answers/");
+    },
 
-  async getWeakChapters(): Promise<{ results: WeakChapter[]; total_chapters: number }> {
-    return apiClient.get("/api/v1/exam-attempts/weak-chapters/");
-  },
+    async getWeakChapters(): Promise<{ results: WeakChapter[]; total_chapters: number }> {
+        return apiClient.get("/api/v1/exam-attempts/weak-chapters/");
+    },
 };
 
 export interface WeakChapter {
-  chapter_id: string;
-  chapter_name: string;
-  subject_id: string;
-  subject_name: string;
-  total_problems: number;
-  correct_answers: number;
-  accuracy: number;
+    chapter_id: string;
+    chapter_name: string;
+    subject_id: string;
+    subject_name: string;
+    total_problems: number;
+    correct_answers: number;
+    accuracy: number;
 }

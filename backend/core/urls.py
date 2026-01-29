@@ -19,6 +19,7 @@ from .views import (
     ExamPaperViewSet,
     ExamTemplateViewSet,
     ExamPaperConditionViewSet,
+    ProblemSearchConditionViewSet,
     TagViewSet,
     ClassViewSet,
     ExamAttemptViewSet,
@@ -34,7 +35,16 @@ router.register(r"review-tasks", ReviewTaskViewSet, basename="review-tasks")
 # review-tasks 엔드포인트는 router에 등록되므로 approve, reject, stats는 자동으로 포함됨
 router.register(r"exam-papers", ExamPaperViewSet, basename="exam-papers")
 router.register(r"exam-templates", ExamTemplateViewSet, basename="exam-templates")
-router.register(r"exam-paper-conditions", ExamPaperConditionViewSet, basename="exam-paper-conditions")
+router.register(
+    r"exam-paper-conditions",
+    ExamPaperConditionViewSet,
+    basename="exam-paper-conditions",
+)
+router.register(
+    r"problem-search-conditions",
+    ProblemSearchConditionViewSet,
+    basename="problem-search-conditions",
+)
 router.register(r"tags", TagViewSet, basename="tags")
 router.register(r"classes", ClassViewSet, basename="classes")
 

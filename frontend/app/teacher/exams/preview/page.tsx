@@ -36,6 +36,55 @@ export default function ExamPreviewPage() {
     }
   };
 
+  const handleGeneratePdf = async () => {
+    if (!examPaper) return;
+    
+    setPdfGenerating(true);
+    setPdfProgress(0);
+    
+    try {
+      await examsApi.generatePdf(examPaper.id, pdfLayoutSettings);
+      setShowPdfSettings(false);
+      
+      // 진행률 폴링 (간단한 시뮬레이션)
+      const interval = setInterval(async () => {
+        setPdfProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(interval);
+            return 90;
+          }
+          return prev + 10;
+        });
+        
+        // PDF 상태 확인
+        try {
+          const status = await examsApi.checkPdfStatus(examPaper.id);
+          if (status.pdf_file) {
+            clearInterval(interval);
+            setPdfProgress(100);
+            setPdfGenerating(false);
+            await loadExamPaper();
+          }
+        } catch (err) {
+          // 무시
+        }
+      }, 1000);
+      
+      // 10초 후 타임아웃
+      setTimeout(() => {
+        clearInterval(interval);
+        if (pdfProgress < 100) {
+          setPdfGenerating(false);
+          setPdfProgress(0);
+        }
+      }, 10000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "PDF 생성 실패");
+      setPdfGenerating(false);
+      setPdfProgress(0);
+    }
+  };
+
   const handleDownloadPdf = async () => {
     if (!examPaper) return;
     
@@ -50,6 +99,12 @@ export default function ExamPreviewPage() {
     } catch (err) {
       alert(err instanceof Error ? err.message : "PDF 다운로드 실패");
     }
+  };
+  
+  const handlePreviewPdf = () => {
+    if (!examPaper?.pdf_file) return;
+    const pdfUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000"}${examPaper.pdf_file}`;
+    window.open(pdfUrl, "_blank");
   };
 
   const handleSearchProblems = async () => {
@@ -91,6 +146,33 @@ export default function ExamPreviewPage() {
       await loadExamPaper();
     } catch (err) {
       alert(err instanceof Error ? err.message : "문항 제거 실패");
+    }
+  };
+
+  const handleMoveItem = async (itemId: string, direction: "up" | "down") => {
+    if (!examPaper || !examPaper.items) return;
+    
+    const sortedItems = [...examPaper.items].sort((a, b) => a.order_number - b.order_number);
+    const currentIndex = sortedItems.findIndex((item) => item.id === itemId);
+    
+    if (currentIndex === -1) return;
+    
+    let newIndex: number;
+    if (direction === "up" && currentIndex > 0) {
+      newIndex = currentIndex - 1;
+    } else if (direction === "down" && currentIndex < sortedItems.length - 1) {
+      newIndex = currentIndex + 1;
+    } else {
+      return; // 이동 불가
+    }
+    
+    const newOrder = sortedItems[newIndex].order_number;
+    
+    try {
+      await examsApi.reorderItem(examPaper.id, itemId, newOrder);
+      await loadExamPaper();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "순서 변경 실패");
     }
   };
 
@@ -186,16 +268,36 @@ export default function ExamPreviewPage() {
 
           <div className="space-y-2">
             {examPaper.items && examPaper.items.length > 0 ? (
-              examPaper.items
-                .sort((a, b) => a.order_number - b.order_number)
-                .map((item) => (
+              (() => {
+                const sortedItems = [...examPaper.items].sort((a, b) => a.order_number - b.order_number);
+                return sortedItems.map((item, index) => (
                   <div
                     key={item.id}
                     className="flex items-center justify-between rounded-xl bg-white/80 px-3 py-2 text-sm"
                   >
-                    <span>
-                      {item.order_number}. 난이도 {item.problem.difficulty || "-"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span>
+                        {item.order_number}. 난이도 {item.problem.difficulty || "-"}
+                      </span>
+                      <div className="flex flex-col gap-1">
+                        <button
+                          onClick={() => handleMoveItem(item.id, "up")}
+                          disabled={index === 0}
+                          className="rounded border border-ink/20 px-1 py-0.5 text-xs hover:bg-ink/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="위로 이동"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={() => handleMoveItem(item.id, "down")}
+                          disabled={index === sortedItems.length - 1}
+                          className="rounded border border-ink/20 px-1 py-0.5 text-xs hover:bg-ink/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="아래로 이동"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                    </div>
                     <button
                       onClick={() => handleRemoveItem(item.id)}
                       className="rounded-full border border-ink/20 px-2 py-1 text-xs hover:bg-coral/10"
@@ -203,7 +305,8 @@ export default function ExamPreviewPage() {
                       제거
                     </button>
                   </div>
-                ))
+                ));
+              })()
             ) : (
               <p className="text-sm text-slate">문항이 없습니다.</p>
             )}
@@ -242,15 +345,146 @@ export default function ExamPreviewPage() {
           >
             수정
           </button>
-          <button
-            onClick={handleDownloadPdf}
-            disabled={!examPaper.pdf_file}
-            className="rounded-full bg-ink px-4 py-2 text-sm text-white disabled:opacity-50"
-          >
-            PDF 다운로드
-          </button>
         </div>
       </div>
+
+      {/* PDF 레이아웃 설정 모달 */}
+      {showPdfSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="card w-full max-w-md p-6">
+            <h3 className="section-title mb-4">PDF 레이아웃 설정</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-slate">페이지 크기</label>
+                <select
+                  className="mt-2 w-full rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm"
+                  value={pdfLayoutSettings.page_size}
+                  onChange={(e) =>
+                    setPdfLayoutSettings({ ...pdfLayoutSettings, page_size: e.target.value })
+                  }
+                >
+                  <option value="A4">A4</option>
+                  <option value="A3">A3</option>
+                  <option value="Letter">Letter</option>
+                </select>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm text-slate">상단 여백 (mm)</label>
+                  <input
+                    type="number"
+                    className="mt-2 w-full rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm"
+                    value={pdfLayoutSettings.margin_top}
+                    onChange={(e) =>
+                      setPdfLayoutSettings({
+                        ...pdfLayoutSettings,
+                        margin_top: parseInt(e.target.value) || 20,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-slate">하단 여백 (mm)</label>
+                  <input
+                    type="number"
+                    className="mt-2 w-full rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm"
+                    value={pdfLayoutSettings.margin_bottom}
+                    onChange={(e) =>
+                      setPdfLayoutSettings({
+                        ...pdfLayoutSettings,
+                        margin_bottom: parseInt(e.target.value) || 20,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-slate">좌측 여백 (mm)</label>
+                  <input
+                    type="number"
+                    className="mt-2 w-full rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm"
+                    value={pdfLayoutSettings.margin_left}
+                    onChange={(e) =>
+                      setPdfLayoutSettings({
+                        ...pdfLayoutSettings,
+                        margin_left: parseInt(e.target.value) || 20,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-slate">우측 여백 (mm)</label>
+                  <input
+                    type="number"
+                    className="mt-2 w-full rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm"
+                    value={pdfLayoutSettings.margin_right}
+                    onChange={(e) =>
+                      setPdfLayoutSettings({
+                        ...pdfLayoutSettings,
+                        margin_right: parseInt(e.target.value) || 20,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm text-slate">폰트</label>
+                  <select
+                    className="mt-2 w-full rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm"
+                    value={pdfLayoutSettings.font_family}
+                    onChange={(e) =>
+                      setPdfLayoutSettings({
+                        ...pdfLayoutSettings,
+                        font_family: e.target.value,
+                      })
+                    }
+                  >
+                    <option value="Noto Sans KR">Noto Sans KR</option>
+                    <option value="Nanum Gothic">Nanum Gothic</option>
+                    <option value="Malgun Gothic">Malgun Gothic</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm text-slate">폰트 크기 (pt)</label>
+                  <input
+                    type="number"
+                    min="8"
+                    max="24"
+                    className="mt-2 w-full rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm"
+                    value={pdfLayoutSettings.font_size}
+                    onChange={(e) =>
+                      setPdfLayoutSettings({
+                        ...pdfLayoutSettings,
+                        font_size: parseInt(e.target.value) || 12,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPdfSettings(false)}
+                  className="flex-1 rounded-full border border-ink/20 px-4 py-2 text-sm"
+                  disabled={pdfGenerating}
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleGeneratePdf}
+                  disabled={pdfGenerating}
+                  className="flex-1 rounded-full bg-ink px-4 py-2 text-sm text-white disabled:opacity-50"
+                >
+                  {pdfGenerating ? "생성 중..." : "PDF 생성"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AppShell>
   );
 }

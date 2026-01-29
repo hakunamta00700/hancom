@@ -21,6 +21,7 @@ from .models import (
     ReviewTask,
     ExamPaper,
     ExamPaperCondition,
+    ProblemSearchCondition,
     ExamTemplate,
     Tag,
     User,
@@ -369,14 +370,52 @@ class ReviewTaskViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = ReviewTask.objects.filter(
-            problem__organization=user.organization
-        ).select_related("problem", "assigned_to")
+        queryset = (
+            ReviewTask.objects.filter(problem__organization=user.organization)
+            .select_related("problem", "assigned_to")
+            .prefetch_related("problem__tags")
+        )
 
         # 상태 필터링
         status_filter = self.request.query_params.get("status")
         if status_filter:
             queryset = queryset.filter(status=status_filter)
+
+        # 과목 필터링
+        subject_id = self.request.query_params.get("subject_id")
+        if subject_id:
+            queryset = queryset.filter(
+                problem__tags__tag__category="subject",
+                problem__tags__tag__id=subject_id,
+            ).distinct()
+
+        # 태깅 신뢰도 필터링 (최소값)
+        min_confidence = self.request.query_params.get("min_confidence")
+        if min_confidence:
+            try:
+                min_conf = float(min_confidence)
+                queryset = queryset.filter(
+                    problem__tags__confidence__gte=min_conf
+                ).distinct()
+            except ValueError:
+                pass
+
+        # 정렬
+        ordering = self.request.query_params.get("ordering", "-created_at")
+        if ordering == "confidence":
+            # 평균 신뢰도로 정렬 (높은 순)
+            queryset = queryset.annotate(
+                avg_confidence=models.Avg("problem__tags__confidence")
+            ).order_by("-avg_confidence", "-created_at")
+        elif ordering == "-confidence":
+            # 평균 신뢰도로 정렬 (낮은 순)
+            queryset = queryset.annotate(
+                avg_confidence=models.Avg("problem__tags__confidence")
+            ).order_by("avg_confidence", "-created_at")
+        elif ordering == "created_at":
+            queryset = queryset.order_by("created_at")
+        else:  # 기본값: -created_at (최신순)
+            queryset = queryset.order_by("-created_at")
 
         return queryset
 
@@ -542,6 +581,8 @@ class ExamPaperViewSet(viewsets.ModelViewSet):
         difficulty_min = request.data.get("difficulty_min", 1)
         difficulty_max = request.data.get("difficulty_max", 5)
         total_count = request.data.get("total_count", 10)
+        chapter_ids = request.data.get("chapter_ids", [])
+        type_ids = request.data.get("type_ids", [])
 
         queryset = Problem.objects.filter(
             organization=request.user.organization,
@@ -549,7 +590,7 @@ class ExamPaperViewSet(viewsets.ModelViewSet):
             deleted_at__isnull=True,
             difficulty__gte=difficulty_min,
             difficulty__lte=difficulty_max,
-        )
+        ).prefetch_related("problemtag_set__tag")
 
         if subject_id:
             queryset = queryset.filter(
@@ -564,9 +605,59 @@ class ExamPaperViewSet(viewsets.ModelViewSet):
         recommended = random.sample(problems, min(total_count, len(problems)))
 
         serializer = ProblemSerializer(recommended, many=True)
+
+        # 각 문항별 추천 이유 생성
+        results_with_reasons = []
+        for problem_data, problem_obj in zip(serializer.data, recommended):
+            reasons = []
+
+            # 과목 일치
+            if subject_id:
+                problem_subject_tags = [
+                    tag
+                    for tag in problem_obj.problemtag_set.all()
+                    if tag.tag.category == "subject" and str(tag.tag.id) == subject_id
+                ]
+                if problem_subject_tags:
+                    reasons.append("과목 일치")
+
+            # 단원 일치
+            if chapter_ids:
+                problem_chapter_tags = [
+                    tag
+                    for tag in problem_obj.problemtag_set.all()
+                    if tag.tag.category == "chapter" and str(tag.tag.id) in chapter_ids
+                ]
+                if problem_chapter_tags:
+                    reasons.append("단원 일치")
+
+            # 난이도 적합
+            if problem_obj.difficulty:
+                if (
+                    problem_obj.difficulty >= difficulty_min
+                    and problem_obj.difficulty <= difficulty_max
+                ):
+                    reasons.append("난이도 적합")
+
+            # 유형 일치
+            if type_ids and problem_obj.problem_type:
+                if problem_obj.problem_type in type_ids:
+                    reasons.append("유형 일치")
+
+            # 기본 추천 이유가 없으면 일반 추천
+            if not reasons:
+                reasons.append("조건에 부합하는 문항")
+
+            results_with_reasons.append(
+                {
+                    **problem_data,
+                    "recommendation_reason": ", ".join(reasons),
+                }
+            )
+
         return Response(
             {
-                "results": serializer.data,
+                "results": results_with_reasons,
                 "insufficient": len(recommended) < total_count,
             }
         )
@@ -702,10 +793,13 @@ class ExamPaperViewSet(viewsets.ModelViewSet):
         """PDF 생성"""
         exam_paper = self.get_object()
 
+        # 레이아웃 설정 파라미터
+        layout_settings = request.data.get("layout_settings", {})
+
         # PDF 생성 태스크 시작
         from .tasks import generate_exam_pdf_task
 
-        generate_exam_pdf_task.delay(str(exam_paper.id))
+        generate_exam_pdf_task.delay(str(exam_paper.id), layout_settings)
 
         return Response({"detail": "PDF 생성이 시작되었습니다."})
 
@@ -736,7 +830,7 @@ class TagViewSet(viewsets.ModelViewSet):
 
 class ExamTemplateViewSet(viewsets.ModelViewSet):
     from .serializers import ExamTemplateSerializer
-    
+
     serializer_class = ExamTemplateSerializer
 
     def get_queryset(self):
@@ -759,12 +853,32 @@ class ExamTemplateViewSet(viewsets.ModelViewSet):
 
 class ExamPaperConditionViewSet(viewsets.ModelViewSet):
     from .serializers import ExamPaperConditionSerializer
-    
+
     serializer_class = ExamPaperConditionSerializer
 
     def get_queryset(self):
         user = self.request.user
         return ExamPaperCondition.objects.filter(organization=user.organization)
+
+    def perform_create(self, serializer):
+        serializer.save(
+            organization=self.request.user.organization, created_by=self.request.user
+        )
+
+    def get_permissions(self):
+        if self.request.user.role not in {"admin", "teacher"}:
+            raise PermissionDenied("Insufficient permissions")
+        return [permissions.IsAuthenticated()]
+
+
+class ProblemSearchConditionViewSet(viewsets.ModelViewSet):
+    from .serializers import ProblemSearchConditionSerializer
+
+    serializer_class = ProblemSearchConditionSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return ProblemSearchCondition.objects.filter(organization=user.organization)
 
     def perform_create(self, serializer):
         serializer.save(

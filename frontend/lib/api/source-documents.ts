@@ -67,6 +67,17 @@ export const sourceDocumentsApi = {
         return apiClient.postFormData<SourceDocument>("/api/v1/source-documents/", formData);
     },
 
+    async createWithProgress(
+        data: CreateSourceDocumentData,
+        onProgress?: (progress: number) => void
+    ): Promise<SourceDocument> {
+        return apiClient.postFormDataWithProgress<SourceDocument>(
+            "/api/v1/source-documents/",
+            data,
+            onProgress
+        );
+    },
+
     async delete(id: string): Promise<void> {
         return apiClient.delete(`/api/v1/source-documents/${id}/`);
     },
