@@ -8,18 +8,21 @@ import { subjectsApi } from "@/lib/api/subjects";
 import { problemsApi } from "@/lib/api/problems";
 import type { ExamPaper, ExamPaperItem } from "@/lib/api/exams";
 import type { Problem } from "@/lib/api/problems";
-import type { Subject } from "@/lib/api/subjects";
+import type { Subject, Chapter } from "@/lib/api/subjects";
 
 export default function ExamBuilderPage() {
   const router = useRouter();
   const [examPaper, setExamPaper] = useState<ExamPaper | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
   const [recommendedProblems, setRecommendedProblems] = useState<Problem[]>([]);
   
   // 시험지 정보
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [subjectId, setSubjectId] = useState("");
+  const [selectedChapters, setSelectedChapters] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [difficultyMin, setDifficultyMin] = useState("1");
   const [difficultyMax, setDifficultyMax] = useState("5");
   const [totalCount, setTotalCount] = useState("20");
@@ -32,6 +35,15 @@ export default function ExamBuilderPage() {
     createDraft();
   }, []);
 
+  useEffect(() => {
+    if (subjectId) {
+      loadChapters();
+    } else {
+      setChapters([]);
+      setSelectedChapters([]);
+    }
+  }, [subjectId]);
+
   const loadSubjects = async () => {
     try {
       const data = await subjectsApi.list();
@@ -42,6 +54,27 @@ export default function ExamBuilderPage() {
     } catch (err) {
       console.error("과목 로드 실패:", err);
     }
+  };
+
+  const loadChapters = async () => {
+    try {
+      const data = await subjectsApi.getChapters(subjectId);
+      setChapters(data);
+    } catch (err) {
+      console.error("단원 로드 실패:", err);
+    }
+  };
+
+  const handleChapterToggle = (chapterId: string) => {
+    setSelectedChapters((prev) =>
+      prev.includes(chapterId) ? prev.filter((id) => id !== chapterId) : [...prev, chapterId]
+    );
+  };
+
+  const handleTypeToggle = (type: string) => {
+    setSelectedTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    );
   };
 
   const createDraft = async () => {
@@ -67,9 +100,30 @@ export default function ExamBuilderPage() {
         difficulty_max: parseInt(difficultyMax),
         total_count: parseInt(totalCount),
       });
-      setRecommendedProblems(response.results);
-      if (response.insufficient) {
-        setError("추천 가능한 문항이 부족합니다.");
+      
+      // 프론트엔드에서 단원/유형 필터링
+      let filtered = response.results;
+      
+      // 단원 필터링
+      if (selectedChapters.length > 0) {
+        filtered = filtered.filter((problem) => {
+          const chapterTags = problem.tags.filter((t: any) => t.category === "chapter");
+          return chapterTags.some((tag: any) => selectedChapters.includes(tag.id));
+        });
+      }
+      
+      // 유형 필터링
+      if (selectedTypes.length > 0) {
+        filtered = filtered.filter((problem) => 
+          problem.problem_type && selectedTypes.includes(problem.problem_type)
+        );
+      }
+      
+      setRecommendedProblems(filtered);
+      if (filtered.length < parseInt(totalCount)) {
+        setError(`추천 가능한 문항이 부족합니다. (${filtered.length}개 추천됨)`);
+      } else {
+        setError(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "추천 실패");
@@ -239,6 +293,57 @@ export default function ExamBuilderPage() {
                 onChange={(e) => setTotalCount(e.target.value)}
                 disabled={loading}
               />
+            </div>
+
+            {/* 단원 선택 (복수 선택 가능) */}
+            {subjectId && chapters.length > 0 && (
+              <div className="mt-4">
+                <label className="text-sm text-slate">단원 선택 (복수 선택 가능)</label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {chapters.map((chapter) => (
+                    <button
+                      key={chapter.id}
+                      type="button"
+                      onClick={() => handleChapterToggle(chapter.id)}
+                      className={`rounded-full border px-3 py-1 text-sm transition ${
+                        selectedChapters.includes(chapter.id)
+                          ? "border-ink bg-ink text-white"
+                          : "border-ink/20 hover:bg-ink/5"
+                      }`}
+                      disabled={loading}
+                    >
+                      {chapter.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 유형 선택 (복수 선택 가능) */}
+            <div className="mt-4">
+              <label className="text-sm text-slate">유형 선택 (복수 선택 가능)</label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {[
+                  { value: "multiple_choice", label: "객관식" },
+                  { value: "short_answer", label: "서술형" },
+                  { value: "essay", label: "논술형" },
+                  { value: "passage_based", label: "지문형" },
+                ].map((type) => (
+                  <button
+                    key={type.value}
+                    type="button"
+                    onClick={() => handleTypeToggle(type.value)}
+                    className={`rounded-full border px-3 py-1 text-sm transition ${
+                      selectedTypes.includes(type.value)
+                        ? "border-ink bg-ink text-white"
+                        : "border-ink/20 hover:bg-ink/5"
+                    }`}
+                    disabled={loading}
+                  >
+                    {type.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="mt-4 flex gap-2">
               <button
