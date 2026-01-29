@@ -58,6 +58,8 @@ export const studentApi = {
   },
 
   async getIncorrectAnswers(): Promise<{ results: any[] }> {
-    return apiClient.get("/api/v1/exam-attempts/incorrect_answers/");
+    // DRF router에서 @action 메서드는 기본적으로 하이픈(-)을 사용하여 URL 생성
+    // 예: incorrect_answers -> incorrect-answers
+    return apiClient.get("/api/v1/exam-attempts/incorrect-answers/");
   },
 };
