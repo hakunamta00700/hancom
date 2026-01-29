@@ -1,7 +1,7 @@
 import secrets
 from datetime import timedelta
 from django.utils import timezone
-from django.db import connection
+from django.db import connection, models
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.conf import settings
@@ -596,6 +596,53 @@ class ExamPaperViewSet(viewsets.ModelViewSet):
             exam_paper.save()
             
             return Response({"detail": "문항이 제거되었습니다."})
+        except ExamPaperItem.DoesNotExist:
+            return Response(
+                {"detail": "문항을 찾을 수 없습니다."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+    @action(detail=True, methods=["post"])
+    def reorder_items(self, request, pk=None):
+        """문항 순서 변경"""
+        from .models import ExamPaperItem
+        
+        exam_paper = self.get_object()
+        item_id = request.data.get("item_id")
+        new_order = request.data.get("order_number")
+        
+        if not item_id or new_order is None:
+            return Response(
+                {"detail": "item_id와 order_number가 필요합니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        try:
+            item = ExamPaperItem.objects.get(exam_paper=exam_paper, id=item_id)
+            old_order = item.order_number
+            
+            # 순서 변경: 기존 순서와 새 순서 사이의 항목들 순서 조정
+            if old_order < new_order:
+                # 아래로 이동: 기존 순서+1 ~ 새 순서 사이의 항목들을 위로 이동
+                ExamPaperItem.objects.filter(
+                    exam_paper=exam_paper,
+                    order_number__gt=old_order,
+                    order_number__lte=new_order
+                ).update(order_number=models.F("order_number") - 1)
+            elif old_order > new_order:
+                # 위로 이동: 새 순서 ~ 기존 순서-1 사이의 항목들을 아래로 이동
+                ExamPaperItem.objects.filter(
+                    exam_paper=exam_paper,
+                    order_number__gte=new_order,
+                    order_number__lt=old_order
+                ).update(order_number=models.F("order_number") + 1)
+            
+            item.order_number = new_order
+            item.save()
+            
+            from .serializers import ExamPaperItemSerializer
+            serializer = ExamPaperItemSerializer(item)
+            return Response(serializer.data)
         except ExamPaperItem.DoesNotExist:
             return Response(
                 {"detail": "문항을 찾을 수 없습니다."},

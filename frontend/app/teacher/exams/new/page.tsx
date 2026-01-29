@@ -155,6 +155,33 @@ export default function ExamBuilderPage() {
     }
   };
 
+  const handleMoveItem = async (itemId: string, direction: "up" | "down") => {
+    if (!examPaper || !examPaper.items) return;
+    
+    const sortedItems = [...examPaper.items].sort((a, b) => a.order_number - b.order_number);
+    const currentIndex = sortedItems.findIndex((item) => item.id === itemId);
+    
+    if (currentIndex === -1) return;
+    
+    let newIndex: number;
+    if (direction === "up" && currentIndex > 0) {
+      newIndex = currentIndex - 1;
+    } else if (direction === "down" && currentIndex < sortedItems.length - 1) {
+      newIndex = currentIndex + 1;
+    } else {
+      return; // 이동 불가
+    }
+    
+    const newOrder = sortedItems[newIndex].order_number;
+    
+    try {
+      await examsApi.reorderItem(examPaper.id, itemId, newOrder);
+      await loadExamPaper();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "순서 변경 실패");
+    }
+  };
+
   const loadExamPaper = async () => {
     if (!examPaper) return;
     try {
@@ -386,16 +413,36 @@ export default function ExamBuilderPage() {
             <h2 className="section-title">선택된 문항 ({total})</h2>
             <div className="mt-4 space-y-3">
               {examPaper?.items && examPaper.items.length > 0 ? (
-                examPaper.items
-                  .sort((a, b) => a.order_number - b.order_number)
-                  .map((item) => (
+                (() => {
+                  const sortedItems = [...examPaper.items].sort((a, b) => a.order_number - b.order_number);
+                  return sortedItems.map((item, index) => (
                     <div
                       key={item.id}
                       className="flex items-center justify-between rounded-2xl bg-white/70 px-4 py-3 text-sm"
                     >
-                      <span>
-                        {item.order_number}. 난이도 {item.problem.difficulty || "-"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span>
+                          {item.order_number}. 난이도 {item.problem.difficulty || "-"}
+                        </span>
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => handleMoveItem(item.id, "up")}
+                            disabled={index === 0}
+                            className="rounded border border-ink/20 px-1 py-0.5 text-xs hover:bg-ink/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="위로 이동"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            onClick={() => handleMoveItem(item.id, "down")}
+                            disabled={index === sortedItems.length - 1}
+                            className="rounded border border-ink/20 px-1 py-0.5 text-xs hover:bg-ink/5 disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="아래로 이동"
+                          >
+                            ↓
+                          </button>
+                        </div>
+                      </div>
                       <button
                         onClick={() => handleRemoveItem(item.id)}
                         className="rounded-full border border-ink/20 px-2 py-1 text-xs hover:bg-coral/10"
@@ -403,7 +450,8 @@ export default function ExamBuilderPage() {
                         삭제
                       </button>
                     </div>
-                  ))
+                  ));
+                })()
               ) : (
                 <p className="text-sm text-slate">선택된 문항이 없습니다.</p>
               )}

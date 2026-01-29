@@ -92,6 +92,13 @@ export const examsApi = {
     }
   },
 
+  async reorderItem(examPaperId: string, itemId: string, orderNumber: number): Promise<ExamPaperItem> {
+    return apiClient.post(`/api/v1/exam-papers/${examPaperId}/reorder-items/`, {
+      item_id: itemId,
+      order_number: orderNumber,
+    });
+  },
+
   async generatePdf(id: string): Promise<void> {
     return apiClient.post(`/api/v1/exam-papers/${id}/generate-pdf/`, {});
   },
