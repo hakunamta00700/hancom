@@ -1,91 +1,356 @@
-import { AppShell } from "@/components/AppShell";
+"use client";
 
-const selected = [
-  { id: 1, label: "국어 문학 객관식 3" },
-  { id: 2, label: "국어 문법 객관식 2" },
-  { id: 3, label: "국어 독서 객관식 4" },
-];
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { AppShell } from "@/components/AppShell";
+import { examsApi } from "@/lib/api/exams";
+import { subjectsApi } from "@/lib/api/subjects";
+import { problemsApi } from "@/lib/api/problems";
+import type { ExamPaper, ExamPaperItem } from "@/lib/api/exams";
+import type { Problem } from "@/lib/api/problems";
+import type { Subject } from "@/lib/api/subjects";
 
 export default function ExamBuilderPage() {
+  const router = useRouter();
+  const [examPaper, setExamPaper] = useState<ExamPaper | null>(null);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [recommendedProblems, setRecommendedProblems] = useState<Problem[]>([]);
+  
+  // 시험지 정보
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [subjectId, setSubjectId] = useState("");
+  const [difficultyMin, setDifficultyMin] = useState("1");
+  const [difficultyMax, setDifficultyMax] = useState("5");
+  const [totalCount, setTotalCount] = useState("20");
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadSubjects();
+    createDraft();
+  }, []);
+
+  const loadSubjects = async () => {
+    try {
+      const data = await subjectsApi.list();
+      setSubjects(data);
+      if (data.length > 0) {
+        setSubjectId(data[0].id);
+      }
+    } catch (err) {
+      console.error("과목 로드 실패:", err);
+    }
+  };
+
+  const createDraft = async () => {
+    try {
+      const draft = await examsApi.create({
+        title: "새 시험지",
+        total_problems: 0,
+      });
+      setExamPaper(draft);
+    } catch (err) {
+      console.error("초안 생성 실패:", err);
+    }
+  };
+
+  const handleRecommend = async () => {
+    if (!examPaper || !subjectId) return;
+    
+    setLoading(true);
+    try {
+      const response = await examsApi.recommend({
+        subject_id: subjectId,
+        difficulty_min: parseInt(difficultyMin),
+        difficulty_max: parseInt(difficultyMax),
+        total_count: parseInt(totalCount),
+      });
+      setRecommendedProblems(response.results);
+      if (response.insufficient) {
+        setError("추천 가능한 문항이 부족합니다.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "추천 실패");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddProblem = async (problem: Problem) => {
+    if (!examPaper) return;
+    
+    try {
+      const orderNumber = (examPaper.items?.length || 0) + 1;
+      await examsApi.addItem(examPaper.id, problem.id, orderNumber);
+      await loadExamPaper();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "문항 추가 실패");
+    }
+  };
+
+  const handleRemoveItem = async (itemId: string) => {
+    if (!examPaper) return;
+    
+    try {
+      await examsApi.removeItem(examPaper.id, itemId);
+      await loadExamPaper();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "문항 제거 실패");
+    }
+  };
+
+  const loadExamPaper = async () => {
+    if (!examPaper) return;
+    try {
+      const updated = await examsApi.get(examPaper.id);
+      setExamPaper(updated);
+    } catch (err) {
+      console.error("시험지 로드 실패:", err);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!examPaper || !title.trim()) {
+      setError("제목을 입력해주세요.");
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      await examsApi.update(examPaper.id, {
+        title,
+        description: description || null,
+        subject: subjectId || null,
+      });
+      setError(null);
+      alert("저장되었습니다.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "저장 실패");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePreview = () => {
+    if (!examPaper) return;
+    router.push(`/teacher/exams/preview?id=${examPaper.id}`);
+  };
+
+  const handleGeneratePdf = async () => {
+    if (!examPaper) return;
+    
+    setLoading(true);
+    try {
+      await examsApi.generatePdf(examPaper.id);
+      alert("PDF 생성이 시작되었습니다. 잠시 후 다운로드할 수 있습니다.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "PDF 생성 실패");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getDifficultyDistribution = () => {
+    if (!examPaper?.items) return { easy: 0, medium: 0, hard: 0 };
+    const difficulties = examPaper.items.map((item) => item.problem.difficulty || 0);
+    return {
+      easy: difficulties.filter((d) => d <= 2).length,
+      medium: difficulties.filter((d) => d === 3).length,
+      hard: difficulties.filter((d) => d >= 4).length,
+    };
+  };
+
+  const dist = getDifficultyDistribution();
+  const total = examPaper?.items?.length || 0;
+
   return (
     <AppShell title="시험지 제작" role="teacher">
+      {error && (
+        <div className="mb-4 rounded-2xl bg-coral/10 border border-coral/30 px-4 py-3 text-sm text-coral">
+          {error}
+        </div>
+      )}
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
         <div className="space-y-6">
           <div className="card p-6">
             <h2 className="section-title">시험지 정보</h2>
             <div className="mt-4 space-y-4">
-              <input className="w-full rounded-2xl border border-ink/10 bg-white/80 px-4 py-3" placeholder="중간고사_국어_1학년" />
-              <textarea className="w-full rounded-2xl border border-ink/10 bg-white/80 px-4 py-3" rows={3} placeholder="설명" />
+              <input
+                className="w-full rounded-2xl border border-ink/10 bg-white/80 px-4 py-3"
+                placeholder="중간고사_국어_1학년"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                disabled={loading}
+              />
+              <textarea
+                className="w-full rounded-2xl border border-ink/10 bg-white/80 px-4 py-3"
+                rows={3}
+                placeholder="설명"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                disabled={loading}
+              />
             </div>
           </div>
           <div className="card p-6">
             <h2 className="section-title">조건 설정</h2>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <select className="rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm">
-                <option>과목: 국어</option>
+              <select
+                className="rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm"
+                value={subjectId}
+                onChange={(e) => setSubjectId(e.target.value)}
+                disabled={loading}
+              >
+                <option value="">과목 선택</option>
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
               </select>
-              <select className="rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm">
-                <option>단원: 전체</option>
-              </select>
-              <select className="rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm">
-                <option>유형: 객관식</option>
-              </select>
-              <input className="rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm" placeholder="난이도 1-5" />
-              <input className="rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm" placeholder="총 문제 수 20" />
-            </div>
-            <div className="mt-4">
-              <p className="text-sm text-slate">난이도 분포</p>
-              <div className="mt-3 grid gap-3 md:grid-cols-3">
-                <input className="rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm" placeholder="쉬움 30%" />
-                <input className="rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm" placeholder="보통 50%" />
-                <input className="rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm" placeholder="어려움 20%" />
-              </div>
+              <input
+                className="rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm"
+                placeholder="난이도 최소"
+                type="number"
+                min="1"
+                max="5"
+                value={difficultyMin}
+                onChange={(e) => setDifficultyMin(e.target.value)}
+                disabled={loading}
+              />
+              <input
+                className="rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm"
+                placeholder="난이도 최대"
+                type="number"
+                min="1"
+                max="5"
+                value={difficultyMax}
+                onChange={(e) => setDifficultyMax(e.target.value)}
+                disabled={loading}
+              />
+              <input
+                className="rounded-2xl border border-ink/10 bg-white/80 px-4 py-3 text-sm"
+                placeholder="총 문제 수"
+                type="number"
+                min="1"
+                value={totalCount}
+                onChange={(e) => setTotalCount(e.target.value)}
+                disabled={loading}
+              />
             </div>
             <div className="mt-4 flex gap-2">
-              <button className="rounded-full bg-ink px-4 py-2 text-sm text-white">자동 추천</button>
-              <button className="rounded-full border border-ink/20 px-4 py-2 text-sm">검색으로 찾기</button>
+              <button
+                onClick={handleRecommend}
+                disabled={loading || !subjectId}
+                className="rounded-full bg-ink px-4 py-2 text-sm text-white disabled:opacity-50"
+              >
+                {loading ? "추천 중..." : "자동 추천"}
+              </button>
+              <button
+                onClick={() => router.push("/teacher/search")}
+                className="rounded-full border border-ink/20 px-4 py-2 text-sm"
+              >
+                검색으로 찾기
+              </button>
             </div>
+            {recommendedProblems.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-sm text-slate">추천 문항:</p>
+                {recommendedProblems.map((problem) => (
+                  <div
+                    key={problem.id}
+                    className="flex items-center justify-between rounded-2xl bg-white/70 px-4 py-3 text-sm"
+                  >
+                    <span>난이도 {problem.difficulty || "-"}</span>
+                    <button
+                      onClick={() => handleAddProblem(problem)}
+                      className="rounded-full border border-ink/20 px-3 py-1 text-xs hover:bg-ink/5"
+                    >
+                      추가
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div className="space-y-6">
           <div className="card p-6">
-            <h2 className="section-title">선택된 문항 (5/20)</h2>
+            <h2 className="section-title">선택된 문항 ({total})</h2>
             <div className="mt-4 space-y-3">
-              {selected.map((item) => (
-                <div key={item.id} className="flex items-center justify-between rounded-2xl bg-white/70 px-4 py-3 text-sm">
-                  <span>{item.id}. {item.label}</span>
-                  <div className="flex gap-2 text-xs">
-                    <button className="rounded-full border border-ink/20 px-2 py-1">삭제</button>
-                    <button className="rounded-full border border-ink/20 px-2 py-1">↑</button>
-                    <button className="rounded-full border border-ink/20 px-2 py-1">↓</button>
-                  </div>
-                </div>
-              ))}
+              {examPaper?.items && examPaper.items.length > 0 ? (
+                examPaper.items
+                  .sort((a, b) => a.order_number - b.order_number)
+                  .map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between rounded-2xl bg-white/70 px-4 py-3 text-sm"
+                    >
+                      <span>
+                        {item.order_number}. 난이도 {item.problem.difficulty || "-"}
+                      </span>
+                      <button
+                        onClick={() => handleRemoveItem(item.id)}
+                        className="rounded-full border border-ink/20 px-2 py-1 text-xs hover:bg-coral/10"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  ))
+              ) : (
+                <p className="text-sm text-slate">선택된 문항이 없습니다.</p>
+              )}
             </div>
           </div>
           <div className="card p-6">
             <h2 className="section-title">난이도 분포</h2>
             <div className="mt-4 space-y-3 text-sm">
               {[
-                { label: "쉬움", value: "20%" },
-                { label: "보통", value: "40%" },
-                { label: "어려움", value: "20%" },
-              ].map((bar) => (
-                <div key={bar.label}>
-                  <div className="flex justify-between text-slate">
-                    <span>{bar.label}</span>
-                    <span>{bar.value}</span>
+                { label: "쉬움", count: dist.easy },
+                { label: "보통", count: dist.medium },
+                { label: "어려움", count: dist.hard },
+              ].map((bar) => {
+                const percentage = total > 0 ? `${Math.round((bar.count / total) * 100)}%` : "0%";
+                return (
+                  <div key={bar.label}>
+                    <div className="flex justify-between text-slate">
+                      <span>{bar.label}</span>
+                      <span>{percentage}</span>
+                    </div>
+                    <div className="mt-2 h-2 rounded-full bg-ink/10">
+                      <div
+                        className="h-2 rounded-full bg-teal"
+                        style={{ width: percentage }}
+                      />
+                    </div>
                   </div>
-                  <div className="mt-2 h-2 rounded-full bg-ink/10">
-                    <div className="h-2 rounded-full bg-teal" style={{ width: bar.value }} />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="mt-6 flex gap-2">
-              <button className="rounded-full border border-ink/20 px-4 py-2 text-sm">미리보기</button>
-              <button className="rounded-full border border-ink/20 px-4 py-2 text-sm">저장</button>
-              <button className="rounded-full bg-ink px-4 py-2 text-sm text-white">PDF 생성</button>
+              <button
+                onClick={handlePreview}
+                disabled={!examPaper || total === 0}
+                className="rounded-full border border-ink/20 px-4 py-2 text-sm disabled:opacity-50"
+              >
+                미리보기
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={loading}
+                className="rounded-full border border-ink/20 px-4 py-2 text-sm disabled:opacity-50"
+              >
+                저장
+              </button>
+              <button
+                onClick={handleGeneratePdf}
+                disabled={loading || !examPaper || total === 0}
+                className="rounded-full bg-ink px-4 py-2 text-sm text-white disabled:opacity-50"
+              >
+                PDF 생성
+              </button>
             </div>
           </div>
         </div>

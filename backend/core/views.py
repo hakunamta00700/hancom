@@ -472,20 +472,154 @@ class ExamPaperViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        return ExamPaper.objects.filter(
-            organization=user.organization, deleted_at__isnull=True
-        )
+        queryset = ExamPaper.objects.filter(organization=user.organization, deleted_at__isnull=True).prefetch_related("exampaperitem_set__problem")
+        
+        # 학생은 배포된 시험지만
+        if user.role == "student":
+            queryset = queryset.filter(is_published=True)
+        
+        return queryset
 
     def perform_create(self, serializer):
-        serializer.save(
-            organization=self.request.user.organization, created_by=self.request.user
-        )
+        serializer.save(organization=self.request.user.organization, created_by=self.request.user)
 
     def get_permissions(self):
         if self.action in {"create", "update", "partial_update", "destroy"}:
             if self.request.user.role == "student":
                 raise PermissionDenied("Insufficient permissions")
         return [permissions.IsAuthenticated()]
+
+    @action(detail=False, methods=["post"])
+    def recommend(self, request):
+        """문항 자동 추천"""
+        from .models import Problem
+        
+        subject_id = request.data.get("subject_id")
+        difficulty_min = request.data.get("difficulty_min", 1)
+        difficulty_max = request.data.get("difficulty_max", 5)
+        total_count = request.data.get("total_count", 10)
+        
+        queryset = Problem.objects.filter(
+            organization=request.user.organization,
+            is_public=True,
+            deleted_at__isnull=True,
+            difficulty__gte=difficulty_min,
+            difficulty__lte=difficulty_max,
+        )
+        
+        if subject_id:
+            queryset = queryset.filter(problemtag_set__tag__category="subject", problemtag_set__tag__id=subject_id).distinct()
+        
+        # 랜덤 추천 (실제로는 더 정교한 알고리즘 필요)
+        import random
+        problems = list(queryset[:total_count * 2])
+        recommended = random.sample(problems, min(total_count, len(problems)))
+        
+        serializer = ProblemSerializer(recommended, many=True)
+        return Response({
+            "results": serializer.data,
+            "insufficient": len(recommended) < total_count,
+        })
+
+    @action(detail=True, methods=["get"])
+    def preview(self, request, pk=None):
+        """시험지 미리보기"""
+        exam_paper = self.get_object()
+        serializer = self.get_serializer(exam_paper)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def add_item(self, request, pk=None):
+        """문항 추가"""
+        from .models import ExamPaperItem
+        
+        exam_paper = self.get_object()
+        problem_id = request.data.get("problem_id")
+        order_number = request.data.get("order_number")
+        points = request.data.get("points", 1)
+        
+        if not problem_id or order_number is None:
+            return Response(
+                {"detail": "problem_id와 order_number가 필요합니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # 중복 확인
+        if ExamPaperItem.objects.filter(exam_paper=exam_paper, problem_id=problem_id).exists():
+            return Response(
+                {"detail": "이미 추가된 문항입니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        item = ExamPaperItem.objects.create(
+            exam_paper=exam_paper,
+            problem_id=problem_id,
+            order_number=order_number,
+            points=points,
+        )
+        
+        # total_problems 업데이트
+        exam_paper.total_problems = exam_paper.exampaperitem_set.count()
+        exam_paper.save()
+        
+        from .serializers import ExamPaperItemSerializer
+        serializer = ExamPaperItemSerializer(item)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post", "delete"])
+    def remove_item(self, request, pk=None):
+        """문항 제거"""
+        from .models import ExamPaperItem
+        
+        exam_paper = self.get_object()
+        # DELETE와 POST 모두 지원 (DELETE는 body 파싱 문제로 POST도 허용)
+        item_id = request.data.get("item_id")
+        
+        if not item_id:
+            return Response(
+                {"detail": "item_id가 필요합니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        try:
+            item = ExamPaperItem.objects.get(exam_paper=exam_paper, id=item_id)
+            item.delete()
+            
+            # total_problems 업데이트
+            exam_paper.total_problems = exam_paper.exampaperitem_set.count()
+            exam_paper.save()
+            
+            return Response({"detail": "문항이 제거되었습니다."})
+        except ExamPaperItem.DoesNotExist:
+            return Response(
+                {"detail": "문항을 찾을 수 없습니다."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+    @action(detail=True, methods=["post"])
+    def generate_pdf(self, request, pk=None):
+        """PDF 생성"""
+        exam_paper = self.get_object()
+        
+        # PDF 생성 태스크 시작
+        from .tasks import generate_exam_pdf_task
+        generate_exam_pdf_task.delay(str(exam_paper.id))
+        
+        return Response({"detail": "PDF 생성이 시작되었습니다."})
+
+    @action(detail=True, methods=["get"])
+    def pdf(self, request, pk=None):
+        """PDF 다운로드"""
+        exam_paper = self.get_object()
+        
+        if not exam_paper.pdf_file:
+            return Response(
+                {"detail": "PDF가 아직 생성되지 않았습니다."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        from django.http import FileResponse
+        return FileResponse(exam_paper.pdf_file.open(), as_attachment=True, filename=f"{exam_paper.title}.pdf")
 
 
 class TagViewSet(viewsets.ModelViewSet):

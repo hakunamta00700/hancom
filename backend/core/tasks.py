@@ -1,7 +1,6 @@
 """
 Celery 태스크 정의
 """
-
 import os
 import sys
 from pathlib import Path
@@ -25,23 +24,21 @@ except ImportError:
     process_page_image = None
     parse_range = None
 
-from .models import SourceDocument, IngestionJob, Problem, ReviewTask
+from .models import SourceDocument, IngestionJob, Problem, ReviewTask, ExamPaper
 
 
 @shared_task(bind=True)
 def extract_problems_task(self, ingestion_job_id: str):
     """
     문항 추출 작업을 수행하는 Celery 태스크
-
+    
     Args:
         ingestion_job_id: IngestionJob의 UUID 문자열
     """
     from django.db import transaction
 
     try:
-        job = IngestionJob.objects.select_related("source_document").get(
-            id=ingestion_job_id
-        )
+        job = IngestionJob.objects.select_related("source_document").get(id=ingestion_job_id)
         doc = job.source_document
 
         # 작업 시작
@@ -62,7 +59,6 @@ def extract_problems_task(self, ingestion_job_id: str):
 
         # PDF 열기
         import fitz  # PyMuPDF
-
         pdf_doc = fitz.open(file_path)
         page_count = len(pdf_doc)
 
@@ -109,9 +105,7 @@ def extract_problems_task(self, ingestion_job_id: str):
                             )
 
                             # 이미지 파일 저장
-                            image_filename = (
-                                f"problem_{problem.id}_{page_num}_{idx}.png"
-                            )
+                            image_filename = f"problem_{problem.id}_{page_num}_{idx}.png"
                             problem.image_file.save(
                                 image_filename,
                                 ContentFile(image_content),
@@ -126,19 +120,15 @@ def extract_problems_task(self, ingestion_job_id: str):
                                 ingestion_job=job,
                                 status="pending",
                             )
-
+                            
                             # 자동 태깅 실행
                             from .tagging import auto_tag_problem
-
                             try:
                                 auto_tag_problem(str(problem.id), use_real_llm=False)
                             except Exception as e:
                                 import logging
-
                                 logger = logging.getLogger(__name__)
-                                logger.error(
-                                    f"문항 {problem.id} 자동 태깅 실패: {str(e)}"
-                                )
+                                logger.error(f"문항 {problem.id} 자동 태깅 실패: {str(e)}")
 
                     total_problems += count
 
@@ -202,7 +192,7 @@ def extract_problems_task(self, ingestion_job_id: str):
 def retry_ingestion_job(ingestion_job_id: str):
     """
     실패한 추출 작업을 재시도
-
+    
     Args:
         ingestion_job_id: IngestionJob의 UUID 문자열
     """
@@ -220,3 +210,62 @@ def retry_ingestion_job(ingestion_job_id: str):
 
     # 새 작업으로 큐에 등록
     extract_problems_task.delay(str(job.id))
+
+
+@shared_task
+def generate_exam_pdf_task(exam_paper_id: str):
+    """
+    시험지 PDF 생성 태스크
+    
+    Args:
+        exam_paper_id: ExamPaper의 UUID 문자열
+    """
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.units import mm
+        from django.conf import settings
+        import os
+        
+        exam_paper = ExamPaper.objects.prefetch_related("exampaperitem_set__problem").get(id=exam_paper_id)
+        
+        # PDF 파일 경로 생성
+        pdf_filename = f"exam_{exam_paper.id}.pdf"
+        pdf_path = os.path.join(settings.MEDIA_ROOT, "exam_papers", pdf_filename)
+        os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
+        
+        # PDF 생성
+        c = canvas.Canvas(pdf_path, pagesize=A4)
+        width, height = A4
+        
+        # 제목
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(50, height - 50, exam_paper.title)
+        
+        # 문항 목록
+        y = height - 100
+        items = exam_paper.exampaperitem_set.all().order_by("order_number")
+        
+        for idx, item in enumerate(items, 1):
+            if y < 100:
+                c.showPage()
+                y = height - 50
+            
+            c.setFont("Helvetica", 12)
+            problem_text = f"{idx}. [문항 {item.problem.problem_number}]"
+            c.drawString(50, y, problem_text)
+            y -= 30
+        
+        c.save()
+        
+        # 파일 저장
+        with open(pdf_path, "rb") as f:
+            exam_paper.pdf_file.save(pdf_filename, ContentFile(f.read()), save=True)
+        
+        return {"status": "completed", "pdf_file": exam_paper.pdf_file.url}
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"PDF 생성 실패: {str(e)}")
+        raise

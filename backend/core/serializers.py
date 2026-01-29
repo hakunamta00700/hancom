@@ -10,6 +10,7 @@ from .models import (
     Problem,
     ReviewTask,
     ExamPaper,
+    ExamPaperItem,
     Tag,
 )
 
@@ -25,24 +26,27 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = [
-            "id",
-            "email",
-            "name",
-            "role",
-            "organization",
-            "is_active",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = [
-            "email",
-            "role",
-            "organization",
-            "is_active",
-            "created_at",
-            "updated_at",
-        ]
+        fields = ["id", "email", "name", "role", "organization", "is_active", "created_at", "updated_at"]
+        read_only_fields = ["email", "role", "organization", "is_active", "created_at", "updated_at"]
+
+
+class RegisterSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True, min_length=8)
+    name = serializers.CharField(max_length=100)
+    organization_name = serializers.CharField(max_length=200)
+
+    def create(self, validated_data):
+        organization = Organization.objects.create(name=validated_data["organization_name"])
+        user = User.objects.create_user(
+            email=validated_data["email"],
+            password=validated_data["password"],
+            name=validated_data["name"],
+            role="admin",
+            organization=organization,
+            is_staff=True,
+        )
+        return user
 
 
 class PasswordChangeSerializer(serializers.Serializer):
@@ -65,27 +69,6 @@ class ResetPasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(write_only=True, required=True, min_length=8)
 
 
-class RegisterSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True, min_length=8)
-    name = serializers.CharField(max_length=100)
-    organization_name = serializers.CharField(max_length=200)
-
-    def create(self, validated_data):
-        organization = Organization.objects.create(
-            name=validated_data["organization_name"]
-        )
-        user = User.objects.create_user(
-            email=validated_data["email"],
-            password=validated_data["password"],
-            name=validated_data["name"],
-            role="admin",
-            organization=organization,
-            is_staff=True,
-        )
-        return user
-
-
 class SubjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject
@@ -95,16 +78,7 @@ class SubjectSerializer(serializers.ModelSerializer):
 class ChapterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chapter
-        fields = [
-            "id",
-            "subject",
-            "name",
-            "code",
-            "parent",
-            "display_order",
-            "is_active",
-            "created_at",
-        ]
+        fields = ["id", "subject", "name", "code", "parent", "display_order", "is_active", "created_at"]
 
 
 class SourceDocumentSerializer(serializers.ModelSerializer):
@@ -157,15 +131,14 @@ class SourceDocumentSerializer(serializers.ModelSerializer):
         validated_data["organization"] = request.user.organization
         validated_data["uploaded_by"] = request.user
         source_document = super().create(validated_data)
-
+        
         # IngestionJob 생성 및 Celery 태스크 시작
         ingestion_job = IngestionJob.objects.create(source_document=source_document)
-
+        
         # 비동기 추출 작업 시작
         from .tasks import extract_problems_task
-
         extract_problems_task.delay(str(ingestion_job.id))
-
+        
         return source_document
 
 
@@ -190,7 +163,7 @@ class IngestionJobSerializer(serializers.ModelSerializer):
 class ProblemSerializer(serializers.ModelSerializer):
     review_task = serializers.SerializerMethodField()
     tags = serializers.SerializerMethodField()
-
+    
     class Meta:
         model = Problem
         fields = [
@@ -213,7 +186,7 @@ class ProblemSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["organization", "created_at", "updated_at"]
-
+    
     def get_review_task(self, obj):
         try:
             task = obj.reviewtask_set.first()
@@ -226,7 +199,7 @@ class ProblemSerializer(serializers.ModelSerializer):
         except:
             pass
         return None
-
+    
     def get_tags(self, obj):
         tags = obj.problemtag_set.select_related("tag").all()
         return [
@@ -256,7 +229,19 @@ class ReviewTaskSerializer(serializers.ModelSerializer):
         ]
 
 
+class ExamPaperItemSerializer(serializers.ModelSerializer):
+    problem = ProblemSerializer(read_only=True)
+    problem_id = serializers.UUIDField(write_only=True)
+    
+    class Meta:
+        model = ExamPaperItem
+        fields = ["id", "exam_paper", "problem", "problem_id", "order_number", "points", "created_at", "updated_at"]
+        read_only_fields = ["exam_paper", "created_at", "updated_at"]
+
+
 class ExamPaperSerializer(serializers.ModelSerializer):
+    items = ExamPaperItemSerializer(source="exampaperitem_set", many=True, read_only=True)
+    
     class Meta:
         model = ExamPaper
         fields = [
@@ -272,6 +257,7 @@ class ExamPaperSerializer(serializers.ModelSerializer):
             "pdf_file",
             "is_published",
             "published_at",
+            "items",
             "created_at",
             "updated_at",
         ]

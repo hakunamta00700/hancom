@@ -81,9 +81,12 @@ class ApiClient {
         });
     }
 
-    async delete<T>(endpoint: string): Promise<T> {
-        return this.request<T>(endpoint, { method: "DELETE" });
-    }
+  async delete<T>(endpoint: string, options?: { body?: string }): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: "DELETE",
+      body: options?.body,
+    });
+  }
 
     async postFormData<T>(endpoint: string, formData: FormData): Promise<T> {
         const url = `${this.baseURL}${endpoint}`;
