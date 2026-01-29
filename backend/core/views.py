@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from django.db import connection
+from django.core.cache import cache
 
 from .models import (
     Subject,
@@ -28,6 +30,36 @@ from .serializers import (
 )
 
 
+class HealthView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        status = {"status": "ok"}
+        checks = {}
+
+        # DB 연결 확인
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+            checks["database"] = "ok"
+        except Exception as e:
+            checks["database"] = f"error: {str(e)}"
+            status["status"] = "degraded"
+
+        # Redis 연결 확인
+        try:
+            cache.set("health_check", "ok", 1)
+            cache.get("health_check")
+            checks["redis"] = "ok"
+        except Exception as e:
+            checks["redis"] = f"error: {str(e)}"
+            status["status"] = "degraded"
+
+        status["checks"] = checks
+        status_code = 200 if status["status"] == "ok" else 503
+        return Response(status, status=status_code)
+
+
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -41,6 +73,12 @@ class RegisterView(APIView):
 class MeView(APIView):
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+
+    def patch(self, request):
+        serializer = UserSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 
 class SubjectViewSet(viewsets.ModelViewSet):
