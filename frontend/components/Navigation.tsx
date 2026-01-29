@@ -63,6 +63,7 @@ export function RoleNav({ role }: { role: "operator" | "teacher" | "student" }) 
     { href: "/student", label: "시험지 목록" },
     { href: "/student/exams", label: "문제 풀이" },
     { href: "/student/incorrect-answers", label: "오답 노트" },
+    { href: "/student/weak-chapters", label: "약점 단원" },
   ];
 
   const items = role === "operator" ? operator : role === "teacher" ? teacher : student;
