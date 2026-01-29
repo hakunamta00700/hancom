@@ -160,6 +160,9 @@ class IngestionJobSerializer(serializers.ModelSerializer):
 
 
 class ProblemSerializer(serializers.ModelSerializer):
+    review_task = serializers.SerializerMethodField()
+    tags = serializers.SerializerMethodField()
+    
     class Meta:
         model = Problem
         fields = [
@@ -176,10 +179,37 @@ class ProblemSerializer(serializers.ModelSerializer):
             "is_public",
             "reviewed_at",
             "reviewed_by",
+            "review_task",
+            "tags",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["organization", "created_at", "updated_at"]
+    
+    def get_review_task(self, obj):
+        try:
+            task = obj.reviewtask_set.first()
+            if task:
+                return {
+                    "id": str(task.id),
+                    "status": task.status,
+                    "review_notes": task.review_notes,
+                }
+        except:
+            pass
+        return None
+    
+    def get_tags(self, obj):
+        tags = obj.problemtag_set.select_related("tag").all()
+        return [
+            {
+                "id": str(tag.tag.id),
+                "name": tag.tag.name,
+                "category": tag.tag.category,
+                "confidence": tag.confidence,
+            }
+            for tag in tags
+        ]
 
 
 class ReviewTaskSerializer(serializers.ModelSerializer):

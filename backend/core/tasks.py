@@ -115,11 +115,20 @@ def extract_problems_task(self, ingestion_job_id: str):
                             problems_created.append(problem.id)
 
                             # ReviewTask 생성
-                            ReviewTask.objects.create(
+                            review_task = ReviewTask.objects.create(
                                 problem=problem,
                                 ingestion_job=job,
                                 status="pending",
                             )
+                            
+                            # 자동 태깅 실행
+                            from .tagging import auto_tag_problem
+                            try:
+                                auto_tag_problem(str(problem.id), use_real_llm=False)
+                            except Exception as e:
+                                import logging
+                                logger = logging.getLogger(__name__)
+                                logger.error(f"문항 {problem.id} 자동 태깅 실패: {str(e)}")
 
                     total_problems += count
 

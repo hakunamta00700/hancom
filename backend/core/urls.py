@@ -26,6 +26,7 @@ router.register(r"source-documents", SourceDocumentViewSet, basename="source-doc
 router.register(r"ingestion-jobs", IngestionJobViewSet, basename="ingestion-jobs")
 router.register(r"problems", ProblemViewSet, basename="problems")
 router.register(r"review-tasks", ReviewTaskViewSet, basename="review-tasks")
+# review-tasks 엔드포인트는 router에 등록되므로 approve, reject, stats는 자동으로 포함됨
 router.register(r"exam-papers", ExamPaperViewSet, basename="exam-papers")
 router.register(r"tags", TagViewSet, basename="tags")
 

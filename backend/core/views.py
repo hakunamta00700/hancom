@@ -236,7 +236,7 @@ class ProblemViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Problem.objects.filter(organization=user.organization, deleted_at__isnull=True)
+        queryset = Problem.objects.filter(organization=user.organization, deleted_at__isnull=True).select_related("reviewed_by")
         if user.role not in {"admin", "operator"}:
             queryset = queryset.filter(is_public=True)
         return queryset
@@ -250,18 +250,164 @@ class ProblemViewSet(viewsets.ModelViewSet):
                 raise PermissionDenied("Insufficient permissions")
         return [permissions.IsAuthenticated()]
 
+    @action(detail=True, methods=["post"])
+    def restore(self, request, pk=None):
+        """삭제된 문항 복구"""
+        problem = self.get_object()
+        if not problem.deleted_at:
+            return Response(
+                {"detail": "삭제된 문항이 아닙니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        problem.deleted_at = None
+        problem.save()
+        
+        # AuditLog 기록
+        from .models import AuditLog
+        AuditLog.objects.create(
+            user=request.user,
+            organization=request.user.organization,
+            action_type="problem_restored",
+            resource_type="problem",
+            resource_id=problem.id,
+            ip_address=self._get_client_ip(request),
+        )
+        
+        return Response({"detail": "문항이 복구되었습니다."})
+    
+    def _get_client_ip(self, request):
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            return x_forwarded_for.split(",")[0]
+        return request.META.get("REMOTE_ADDR", "")
+
 
 class ReviewTaskViewSet(viewsets.ModelViewSet):
     serializer_class = ReviewTaskSerializer
 
     def get_queryset(self):
         user = self.request.user
-        return ReviewTask.objects.filter(problem__organization=user.organization)
+        queryset = ReviewTask.objects.filter(problem__organization=user.organization).select_related("problem", "assigned_to")
+        
+        # 상태 필터링
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+        
+        return queryset
 
     def get_permissions(self):
         if self.request.user.role not in {"admin", "operator"}:
             raise PermissionDenied("Insufficient permissions")
         return [permissions.IsAuthenticated()]
+
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        """문항 승인"""
+        task = self.get_object()
+        problem = task.problem
+        
+        # 문제 공개 처리
+        problem.is_public = True
+        problem.reviewed_at = timezone.now()
+        problem.reviewed_by = request.user
+        problem.save()
+        
+        # ReviewTask 완료
+        task.status = "approved"
+        task.reviewed_at = timezone.now()
+        task.assigned_to = request.user
+        task.save()
+        
+        # ReviewHistory 기록
+        from .models import ReviewHistory
+        ReviewHistory.objects.create(
+            problem=problem,
+            review_task=task,
+            changed_field="status",
+            old_value="pending",
+            new_value="approved",
+            changed_by=request.user,
+        )
+        
+        # AuditLog 기록
+        from .models import AuditLog
+        AuditLog.objects.create(
+            user=request.user,
+            organization=request.user.organization,
+            action_type="problem_approved",
+            resource_type="problem",
+            resource_id=problem.id,
+            ip_address=self._get_client_ip(request),
+        )
+        
+        return Response({"detail": "문항이 승인되었습니다."})
+
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        """문항 반려"""
+        task = self.get_object()
+        problem = task.problem
+        
+        reason = request.data.get("reason", "")
+        
+        # ReviewTask 반려
+        task.status = "rejected"
+        task.reviewed_at = timezone.now()
+        task.review_notes = reason
+        task.assigned_to = request.user
+        task.save()
+        
+        # ReviewHistory 기록
+        from .models import ReviewHistory
+        ReviewHistory.objects.create(
+            problem=problem,
+            review_task=task,
+            changed_field="status",
+            old_value="pending",
+            new_value="rejected",
+            changed_by=request.user,
+        )
+        
+        # AuditLog 기록
+        from .models import AuditLog
+        AuditLog.objects.create(
+            user=request.user,
+            organization=request.user.organization,
+            action_type="problem_rejected",
+            resource_type="problem",
+            resource_id=problem.id,
+            details={"reason": reason},
+            ip_address=self._get_client_ip(request),
+        )
+        
+        return Response({"detail": "문항이 반려되었습니다."})
+
+    def _get_client_ip(self, request):
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            return x_forwarded_for.split(",")[0]
+        return request.META.get("REMOTE_ADDR", "")
+
+    @action(detail=False, methods=["get"])
+    def stats(self, request):
+        """검수 통계"""
+        from django.db.models import Count, Q
+        from .models import ReviewTask
+        
+        user = request.user
+        queryset = ReviewTask.objects.filter(problem__organization=user.organization)
+        
+        stats = {
+            "total": queryset.count(),
+            "pending": queryset.filter(status="pending").count(),
+            "in_progress": queryset.filter(status="in_progress").count(),
+            "approved": queryset.filter(status="approved").count(),
+            "rejected": queryset.filter(status="rejected").count(),
+        }
+        
+        return Response(stats)
 
 
 class ExamPaperViewSet(viewsets.ModelViewSet):
