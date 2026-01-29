@@ -9,6 +9,7 @@ from .views import (
     PasswordChangeView,
     ForgotPasswordView,
     ResetPasswordView,
+    StudentsListView,
     SubjectViewSet,
     ChapterViewSet,
     SourceDocumentViewSet,
@@ -31,6 +32,7 @@ router.register(r"review-tasks", ReviewTaskViewSet, basename="review-tasks")
 # review-tasks 엔드포인트는 router에 등록되므로 approve, reject, stats는 자동으로 포함됨
 router.register(r"exam-papers", ExamPaperViewSet, basename="exam-papers")
 router.register(r"tags", TagViewSet, basename="tags")
+router.register(r"classes", ClassViewSet, basename="classes")
 
 urlpatterns = [
     path("health/", HealthView.as_view(), name="health"),
@@ -44,5 +46,6 @@ urlpatterns = [
     path("auth/password/change/", PasswordChangeView.as_view(), name="password_change"),
     path("auth/forgot-password/", ForgotPasswordView.as_view(), name="forgot_password"),
     path("auth/reset-password/", ResetPasswordView.as_view(), name="reset_password"),
+    path("students/", StudentsListView.as_view(), name="students_list"),
     path("", include(router.urls)),
 ]

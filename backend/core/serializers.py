@@ -274,11 +274,26 @@ class TagSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "category", "display_order", "is_active", "created_at"]
 
 
+class ClassMemberSerializer(serializers.ModelSerializer):
+    student = UserSerializer(read_only=True)
+    
+    class Meta:
+        model = ClassMember
+        fields = ["id", "class_group", "student", "created_at", "updated_at"]
+        read_only_fields = ["created_at", "updated_at"]
+
+
 class ClassSerializer(serializers.ModelSerializer):
+    members = ClassMemberSerializer(source="members", many=True, read_only=True)
+    member_count = serializers.SerializerMethodField()
+    
     class Meta:
         model = Class
-        fields = ["id", "organization", "name", "description", "created_by", "created_at", "updated_at"]
+        fields = ["id", "organization", "name", "description", "created_by", "members", "member_count", "created_at", "updated_at"]
         read_only_fields = ["organization", "created_by", "created_at", "updated_at"]
+    
+    def get_member_count(self, obj):
+        return obj.members.count()
 
 
 class AnswerSerializer(serializers.ModelSerializer):

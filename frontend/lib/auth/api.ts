@@ -56,4 +56,8 @@ export const authApi = {
     logout(): void {
         apiClient.removeToken();
     },
+
+    async getStudents(): Promise<{ results: User[] }> {
+        return apiClient.get("/api/v1/students/");
+    },
 };

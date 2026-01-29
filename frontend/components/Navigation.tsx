@@ -57,6 +57,7 @@ export function RoleNav({ role }: { role: "operator" | "teacher" | "student" }) 
     { href: "/teacher/search", label: "문항 검색" },
     { href: "/teacher/exams/new", label: "시험지 제작" },
     { href: "/teacher/exams", label: "시험지 목록" },
+    { href: "/teacher/classes", label: "반/학생군 관리" },
   ];
   const student = [
     { href: "/student", label: "시험지 목록" },

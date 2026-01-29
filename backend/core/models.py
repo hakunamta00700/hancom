@@ -353,3 +353,71 @@ class PasswordResetToken(TimeStampedModel):
             models.Index(fields=["token"]),
             models.Index(fields=["expires_at"]),
         ]
+
+
+class Class(TimeStampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    name = models.CharField(max_length=200)
+    description = models.TextField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True
+    )
+
+    def __str__(self):
+        return self.name
+
+
+class ClassMember(TimeStampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    class_group = models.ForeignKey(Class, on_delete=models.CASCADE, related_name="members")
+    student = models.ForeignKey(
+        User, on_delete=models.CASCADE, limit_choices_to={"role": UserRole.STUDENT}
+    )
+
+    class Meta:
+        unique_together = ("class_group", "student")
+
+    def __str__(self):
+        return f"{self.class_group.name} - {self.student.name}"
+
+
+class ExamAttemptStatus(models.TextChoices):
+    IN_PROGRESS = "in_progress", "In Progress"
+    SUBMITTED = "submitted", "Submitted"
+    GRADED = "graded", "Graded"
+
+
+class ExamAttempt(TimeStampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    exam_paper = models.ForeignKey(ExamPaper, on_delete=models.CASCADE)
+    student = models.ForeignKey(
+        User, on_delete=models.CASCADE, limit_choices_to={"role": UserRole.STUDENT}
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=ExamAttemptStatus.choices,
+        default=ExamAttemptStatus.IN_PROGRESS,
+    )
+    started_at = models.DateTimeField(auto_now_add=True)
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    total_score = models.IntegerField(null=True, blank=True)
+    max_score = models.IntegerField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["exam_paper"]),
+        ]
+
+
+class Answer(TimeStampedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    exam_attempt = models.ForeignKey(ExamAttempt, on_delete=models.CASCADE, related_name="answer_set")
+    problem = models.ForeignKey(Problem, on_delete=models.CASCADE)
+    answer_text = models.TextField(null=True, blank=True)
+    selected_choice = models.IntegerField(null=True, blank=True)
+    is_correct = models.BooleanField(null=True, blank=True)
+    points_earned = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ("exam_attempt", "problem")
