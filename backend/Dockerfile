@@ -16,17 +16,14 @@ RUN apt-get update \
 # uv 설치
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# pyproject.toml과 uv.lock 복사 (의존성 설치용)
-COPY pyproject.toml uv.lock ./
+# requirements.txt 복사 (의존성 설치용)
+COPY backend/requirements.txt ./requirements.txt
 
-# uv를 사용하여 패키지 설치 (pyproject.toml의 dependencies 설치)
-# uv pip install은 pyproject.toml을 읽어 dependencies를 설치합니다
-RUN uv pip install --system --no-cache -e .
+# uv를 사용하여 패키지 설치
+RUN uv pip install --system --no-cache -r requirements.txt
 
 # 애플리케이션 코드 복사
-COPY backend/ ./backend/
-
-WORKDIR /app/backend
+COPY backend/ ./
 
 EXPOSE 8000
 
